@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentos | Arles SAS</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/turnos.css"><link rel="stylesheet" href="/document-workspace.css"><link rel="stylesheet" href="/coordination.css"><link rel="stylesheet" href="/planning.css"><link rel="stylesheet" href="/experience.css"></head>
+<body>
+<aside class="rail">
+  <div class="brand"><img src="/public/logo-arles-sas.png" alt="Arles · Cultivamos prosperidad"></div>
+  <div class="rail-label">PLATAFORMA INTEGRAL</div>
+  <details class="applications" id="applications">
+    <summary><span data-icon="grid"></span>Aplicativos<span class="applications-chevron">›</span></summary>
+    <nav aria-label="Aplicativos de Arles">
+      <a href="https://gestion-almacen-arles-sas.vercel.app/" target="_blank" rel="noopener noreferrer">Almacén<span aria-hidden="true">↗</span><span class="sr-only"> (abre en otra pestaña)</span></a>
+      <div class="application-pending"><span>Mantenimiento taller</span><small>Pendiente de migración a web</small></div>
+      <a href="https://maestro-web-liard.vercel.app/" target="_blank" rel="noopener noreferrer" title="Vivero · En desarrollo"><span>Vivero<small class="application-status">En desarrollo</small></span><span aria-hidden="true">↗</span><span class="sr-only"> (abre en otra pestaña)</span></a>
+      <a href="https://censos-arles.vercel.app/" target="_blank" rel="noopener noreferrer">Censo campo<span aria-hidden="true">↗</span><span class="sr-only"> (abre en otra pestaña)</span></a>
+    </nav>
+  </details>
+  <nav class="tree-pane" aria-label="Biblioteca de documentos"><button id="all" class="tree-home active"><span data-icon="home"></span>Biblioteca<span id="total-count">0</span></button><button id="favorites" class="tree-home"><span data-icon="star"></span>Mis favoritos</button><div class="tree-caption">CARPETAS</div><div id="tree"></div><div class="tree-foot"><span data-icon="link"></span>Los enlaces comparten el original,<br>no crean copias.</div></nav>
+  <div class="rail-note"><span data-icon="shield"></span><div>Tu espacio documental<small>Un original. Accesos compartidos.</small></div></div>
+  <div class="rail-bottom"><span class="avatar">AS</span><div>Arles SAS<small>Vista de diseño</small></div><span class="online-dot"></span></div>
+</aside>
+<div class="workspace">
+  <header class="topbar"><div class="platform">Plataforma Integral <b>Arles SAS</b></div><div class="local-badge"><span></span>Prototipo local</div><button class="icon-button" id="help" aria-label="Acerca de este prototipo"><span data-icon="info"></span></button></header>
+  <main>
+    <div class="heading"><div><div class="eyebrow">ORGANIZAR · COMPARTIR · CONSERVAR</div><h1>Espacio documental<span class="title-dot">.</span></h1><p>Todo en su lugar. Una sola versión vigente para cada documento.</p></div><button class="button primary" id="seed"><span data-icon="spark"></span>Crear pruebas</button></div>
+    <div class="demo-banner" id="demo-banner" hidden><span data-icon="flask"></span><div><b>Estás explorando datos de prueba</b><span>Carpetas y documentos ficticios, guardados solo en este navegador.</span></div><button id="clear" class="text-button">Limpiar pruebas</button></div>
+
+    <section class="explorer" aria-label="Explorador documental">
+
+      <section class="content-pane"><div class="content-top"><nav id="breadcrumbs" aria-label="Ruta de carpetas"></nav><button id="new-folder" class="button secondary"><span data-icon="plus"></span>Nueva carpeta</button></div><div class="folder-heading"><div><h2 id="folder-title">Todos los documentos</h2><p id="folder-subtitle">El punto de partida de tu biblioteca.</p></div><span id="depth" class="depth">BIBLIOTECA</span></div>
+      <div class="toolbar"><label class="search"><span data-icon="search"></span><input id="search" placeholder="Buscar en toda la biblioteca…" aria-label="Buscar documentos y carpetas"><kbd>/</kbd></label><select id="status" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option>Vigente</option><option>En revisión</option><option>Borrador</option></select><button class="icon-button" id="view-toggle" aria-label="Cambiar a vista de lista"><span data-icon="list"></span></button></div>
+      <div id="contents"></div><div class="content-footer"><span id="item-count">Sin elementos</span><span id="storage-note">Almacenamiento local del navegador</span></div></section>
+      <aside id="inspector" class="inspector" aria-label="Detalles del documento"></aside>
+    </section>
+    <footer class="page-footer"><span>ARLES SAS <span class="footer-separator">/</span> Cultivamos prosperidad</span><span>Diseño documental · Sin conexión a base de datos</span></footer>
+  </main>
+</div>
+<dialog id="folder-dialog"><form id="folder-form"><div class="dialog-heading"><h2>Nueva carpeta</h2><button type="button" class="icon-button" data-close="folder-dialog" aria-label="Cerrar">×</button></div><p id="folder-location"></p><label>Nombre de la carpeta<input id="folder-name" required maxlength="70" autocomplete="off" placeholder="Por ejemplo: Procedimientos"></label><p class="form-error" id="folder-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close="folder-dialog">Cancelar</button><button class="button primary">Crear carpeta</button></div></form></dialog>
+<dialog id="preview-dialog" class="preview-dialog"><div class="dialog-heading"><h2>Vista previa de ejemplo</h2><button class="icon-button" data-close="preview-dialog" aria-label="Cerrar vista previa">×</button></div><div id="preview-body"></div></dialog>
+<dialog id="confirm-dialog"><div class="dialog-heading"><h2>Limpiar las pruebas</h2><button class="icon-button" data-close="confirm-dialog" aria-label="Cerrar">×</button></div><p>Se eliminarán los documentos y carpetas de ejemplo. Las carpetas que tú creaste se conservarán; si estaban dentro de una prueba, pasarán a la raíz.</p><div class="dialog-actions"><button class="button secondary" data-close="confirm-dialog">Cancelar</button><button id="confirm-clear" class="button danger">Limpiar pruebas</button></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/app.js"></script><script type="module" src="/turnos.js"></script><script type="module" src="/document-control.js"></script><script type="module" src="/platform.js"></script>
+<link rel="stylesheet" href="/assistant.css">
+<script type="module" src="/assistant.js"></script>
+</body></html>
+
+
+
+

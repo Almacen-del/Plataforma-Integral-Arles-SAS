@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {parseMergeText,mergeData,fieldValue,ruleValue,mergeZip} from '../native-merge-model.js';
+const rows=parseMergeText('Nombre;Código;Nota\r\n"Ana; María";00125;"Primera línea\nSegunda ""línea"""\r\nLuis;00002;Bien');
+assert.deepEqual(rows[1],['Ana; María','00125','Primera línea\nSegunda "línea"']);
+const data=mergeData(rows);assert.equal(data.records[0].values[1],'00125');
+assert.equal(fieldValue({field:'Nombre',format:'upper'},data.headers,data.records[0]),'ANA; MARÍA');
+assert.equal(ruleValue({field:'Código',operator:'equal',value:'00125',yes:'Sí',no:'No'},data.headers,data.records[0]),'Sí');
+assert.throws(()=>mergeData([['Nombre','nombre'],['a','b']]),/repetirse/);
+assert.throws(()=>mergeData([['Nombre'],['a','b']]),/más columnas/);
+assert.throws(()=>parseMergeText('A,B\n"sin cerrar'),/comillas/);
+assert.throws(()=>mergeData([['A'],...Array.from({length:501},()=>['x'])]),/500/);
+const zip=mergeZip([{name:'á.docx',data:new Uint8Array([1,2,3])}]);assert.ok(zip.size>100);
+console.log('PASS CSV quoting, multiline, leading zeros, conditions, validation and ZIP');
