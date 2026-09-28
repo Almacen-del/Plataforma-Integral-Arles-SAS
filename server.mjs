@@ -12,6 +12,7 @@ allowed.add('/native-history.js');allowed.add('/native-history-model.js');
 allowed.add('/native-pages.js');allowed.add('/native-page-layout.js');
 for(const file of await readdir(path.join(root,'public/fsst053')))allowed.add('/public/fsst053/'+file);
 allowed.add('/demo-personalizacion.html');
+for(const f of ['sheet-model.js','sheet-workspace.js','sheet-workspace.css'])allowed.add('/'+f);
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpeg':'image/jpeg', '.jpg':'image/jpeg', '.json':'application/json; charset=utf-8', '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 http.createServer(async (req, res) => {
   const route = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;

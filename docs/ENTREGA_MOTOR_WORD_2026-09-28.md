@@ -13,3 +13,7 @@ Prototipo con localStorage e IndexedDB. Publicar código no sube documentos ni d
 
 ## Siguiente etapa autorizada
 Consultar documentación oficial de Microsoft Excel y comenzar el diseño del editor de hojas de cálculo. Mantener la entrega Word identificable y separada de los cambios de la etapa Excel.
+
+## Publicación verificada
+Código guardado en el commit d55dd74. Producción: https://plataforma-integral-arles-demo.vercel.app
+Despliegue dpl_4mSMcCHF7cRQum6oYHKdihh53CcF, estado READY. Comprobación pública: HTTP 200, apertura del editor, cinta Vista y archivo native-pages.js actualizado; sin errores JavaScript en ese recorrido.

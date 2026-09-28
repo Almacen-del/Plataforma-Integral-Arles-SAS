@@ -53,3 +53,5 @@ await copyFile('native-norms.js','dist/native-norms.js');
 await copyFile('native-references.js','dist/native-references.js');
 
 for(const f of ['native-view.js','native-tracking.js','native-merge.js','native-merge-model.js','native-merge-labels.js'])await copyFile(f,'dist/'+f);
+
+for(const f of ['sheet-model.js','sheet-workspace.js','sheet-workspace.css'])await copyFile(f,'dist/'+f);

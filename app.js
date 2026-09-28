@@ -1,3 +1,4 @@
+import {openSheetWorkspace} from './sheet-workspace.js';
 import {auditSave} from './audit.js';
 import {openNativeDocument,createNativeDocument} from './native-document.js';
 import { ROOT, ISO_ROOT, LIBRARY_ROOTS, depth, ensureLibraryRoot, ancestors, createFolder, seed, clearDemo } from './model.js';
@@ -101,6 +102,8 @@ $('#search').oninput=renderContents;$('#status').onchange=renderContents;
 $('#view-toggle').onclick=()=>{list=!list;$('#view-toggle').innerHTML=icon(list?'grid':'list');$('#view-toggle').setAttribute('aria-label',list?'Cambiar a vista de tarjetas':'Cambiar a vista de lista');renderContents();};
 $('#new-folder').onclick=()=>{ $('#folder-location').textContent='Dentro de: '+[ 'Biblioteca',...ancestors(state.folders,folder).map(f=>f.name)].join(' / ');$('#folder-name').value='';$('#folder-error').textContent='';$('#folder-dialog').showModal();$('#folder-name').focus();};
 const newText=document.createElement('button');newText.id='new-text-document';newText.className='button primary';newText.textContent='＋ Documento de texto';$('#new-folder').before(newText);newText.onclick=()=>createNativeDocument(folder);
+const sheetsButton=document.createElement('button');sheetsButton.id='open-sheet-workspace';sheetsButton.className='button secondary';sheetsButton.textContent='▦ Hojas de cálculo';newText.after(sheetsButton);sheetsButton.onclick=openSheetWorkspace;
+if(new URLSearchParams(location.search).get('editor')==='hojas')setTimeout(openSheetWorkspace,0);
 const textExample=document.createElement('button');textExample.id='new-text-example';textExample.className='button secondary';textExample.textContent='Ejemplo editable';newText.before(textExample);textExample.onclick=()=>createNativeDocument(folder,true);
 $('#folder-form').onsubmit=e=>{e.preventDefault();try{createFolder(state,folder,$('#folder-name').value);save();expanded.add(folder);$('#folder-dialog').close();render();toast('Carpeta creada.');}catch(err){$('#folder-error').textContent=err.message;}};
 $('#clear').onclick=()=>$('#confirm-dialog').showModal();$('#confirm-clear').onclick=()=>{clearDemo(state);save();$('#confirm-dialog').close();navigate(ROOT);toast('Pruebas eliminadas. Tus carpetas se conservaron.');};
