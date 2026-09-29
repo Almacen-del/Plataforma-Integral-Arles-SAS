@@ -33,7 +33,7 @@ La selección admite arrastre, Mayús, filas/columnas y cuadro de direcciones. E
 ## Cálculo inicial y límites explícitos
 100 filas × 26 columnas. SUMA, SUM, PROMEDIO, MIN, MAX, CONTAR, CONTARA, operadores aritméticos, porcentajes y referencias de la misma hoja. Recálculo al editar. Separador decimal coma y de argumentos punto y coma. Errores de fórmula, división por cero y referencia circular visibles. Sin eval ni ejecución de fórmulas como código.
 
-No hay todavía importación/exportación XLSX, referencias entre hojas, ajuste relativo al copiar fórmulas, funciones avanzadas, tablas estructuradas, tablas dinámicas, gráficos persistidos sobre la cuadrícula, celdas combinadas ni impresión paginada. La ordenación se bloquea en hojas que contienen fórmulas hasta incorporar actualización de referencias. El formato de tabla es visual. Los gráficos y la impresión son vistas previas identificadas como tales.
+No hay todavía importación/exportación XLSX, referencias entre hojas, funciones avanzadas, tablas estructuradas, tablas dinámicas, gráficos persistidos sobre la cuadrícula, impresión paginada. La ordenación se bloquea en hojas que contienen fórmulas hasta incorporar actualización de referencias. El formato de tabla es visual. Los gráficos y la impresión son vistas previas identificadas como tales.
 
 Guardado independiente en localStorage, clave arles-sheet-design-v1, un libro por navegador en esta etapa. No se escriben documentos controlados ni datos de inventario. No es una integración con Microsoft Office ni un servicio multiusuario. La protección no es seguridad de acceso. CSV exporta valores, no formato; textos que parecen fórmulas se neutralizan en esa exportación.
 
@@ -48,3 +48,16 @@ Pruebas de modelo: dependencias, fórmulas, rangos, errores, identificadores con
 5. Vincular libros a la biblioteca documental con identidad, revisión y permisos reales cuando exista backend.
 
 La entrega Word está publicada. Esta etapa de hojas de cálculo se conserva localmente para revisar su diseño antes de otra publicación.
+
+
+## Ampliación de Inicio · 29 de septiembre
+La ficha Archivo se retira por solicitud del usuario. Inicio adopta una cinta compacta de siete grupos y una galería de estilos. Se implementan cortar/copiar/pegar celdas con formato y fórmulas relativas, copiar formato, subrayado, tamaño, bordes, alineación vertical, sangrías y decimales; estilos Normal/Bueno/Incorrecto/Neutral; combinar/separar sin descartar contenido; insertar/eliminar filas y columnas completas con actualización de referencias; tamaños y autoajuste; rellenar en cuatro direcciones y series numéricas; borrar por contenido/formato/notas, y reemplazo de texto en la selección.
+
+Formato condicional: números, intervalos, texto, duplicados/únicos, superiores/inferiores por cantidad o porcentaje, promedios, vacíos, errores, fechas relativas, escalas, barras (incluidos negativos), semáforos y fórmulas de comparación simple. Vista previa, edición, activación, eliminación, prioridad y detener si se cumple. Fechas como AAAA-MM-DD o serial Excel. Las reglas se guardan con el libro y se recalculan al editar. Se migran las antiguas reglas simples.
+
+Referencias adicionales consultadas:
+- https://support.microsoft.com/es-es/excel/get-started/insert-or-delete-rows-and-columns-in-excel
+- https://support.microsoft.com/es-es/excel/get-started/merge-and-unmerge-cells-in-excel
+- https://support.microsoft.com/es-es/excel/get-started/fill-data-automatically-in-worksheet-cells
+
+Pruebas: tests/sheet-home.test.mjs y tests/sheet-home.browser.cjs cubren reglas, persistencia, recálculo, fórmulas al rellenar/copiar/mover, filas/columnas, combinación sin pérdida, estilos y cintas. Continúan pendientes desplazamientos de celdas individuales, tablas estructuradas, ampliar funciones de cálculo y compatibilidad XLSX. El corte bloquea las referencias que abarcan parcialmente el rango movido y las fórmulas entre hojas, en lugar de dejar referencias incorrectas. No se promete compatibilidad completa con Excel.
