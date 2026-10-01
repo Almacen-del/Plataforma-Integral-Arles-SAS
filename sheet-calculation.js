@@ -1,6 +1,8 @@
 import {evaluateFormula,FormulaError,matrix,parseFormula,formulaReferences,formulaIdentifiers} from './sheet-formula-engine.js';
 import {literal,formatNumber,validateCustomFormat,range,position,address} from './sheet-model.js';
 import {dataRowVisible,outlineHidden} from './sheet-data-rules.js';
+import {ROWS,COLS} from './sheet-grid-limits.js';
+import {xlsxFormula} from './sheet-xlsx.js';
 const books=new WeakMap(),byId=new Map(),runtimes=new WeakMap();
 const encode=v=>v instanceof Error?{formulaError:v.message}:Array.isArray(v)?v.map(encode):v;
 const decode=v=>v?.formulaError?new FormulaError(v.formulaError):Array.isArray(v)?v.map(decode):v;
@@ -17,16 +19,16 @@ function runtime(book,{force=false,override}={}){
  const eligible=s=>Object.keys(s.cells).filter(r=>String(s.cells[r]?.raw).startsWith('='));
  const checkArray=(s,ref,result)=>{
   const a=matrix(result),[r,c]=position(ref),w=Math.max(...a.map(row=>row.length)),h=a.length;if(!w||!h||a.some(row=>row.length!==w))return new FormulaError('#CALC!');
-  if(r+h>100||c+w>26)return new FormulaError('#¡DESBORDAMIENTO!');
+  if(r+h>ROWS||c+w>COLS)return new FormulaError('#¡DESBORDAMIENTO!');
   const refs=a.flatMap((row,i)=>row.map((_,j)=>address(r+i,c+j)));if(refs.some(id=>id!==ref&&(s.cells[id]?.raw||spills.has(key(s,id))&&spills.get(key(s,id)).anchor!==ref))||(s.merges||[]).some(m=>range(m).some(id=>refs.includes(id))))return new FormulaError('#¡DESBORDAMIENTO!');
   for(let i=0;i<h;i++)for(let j=0;j<w;j++)spills.set(key(s,address(r+i,c+j)),{anchor:ref,result:a[i][j]});return a;
  };
  const resolveName=(s,name,stack)=>{
   const names=book.names||[],entry=names.find(n=>n.scope===s.id&&n.name.toUpperCase()===name)||names.find(n=>!n.scope&&n.name.toUpperCase()===name);
   if(!entry)throw new FormulaError('#¿NOMBRE?');const marker='name:'+entry.id,cacheKey=s.id+':'+entry.id;if(namedLambdas.has(cacheKey))return namedLambdas.get(cacheKey);if(stack.has(marker))throw new FormulaError('#CIRCULAR!');
-  const result=evaluateFormula(entry.refersTo,{...context(s,'A1',new Set(stack).add(marker)),allowLambda:true});if(typeof result==='function'&&result.formulaLambda)namedLambdas.set(cacheKey,result);return result;
+  const result=evaluateFormula(entry.formulaSyntax==='xlsx'?xlsxFormula(entry.refersTo,book):entry.refersTo,{...context(s,'A1',new Set(stack).add(marker)),allowLambda:true});if(typeof result==='function'&&result.formulaLambda)namedLambdas.set(cacheKey,result);return result;
  };
- const context=(s,ref,stack,trace)=>({currentRef:ref,sheetName:s.name,sheets:all.map(s=>s.name),trace,tick:()=>{if(++operations>100000)throw new FormulaError('#LÍMITE!');},enterLambda:()=>{if(lambdaDepth>=100)throw new FormulaError('#LÍMITE!');lambdaDepth++;},leaveLambda:()=>lambdaDepth--,
+ const context=(s,ref,stack,trace)=>({currentRef:ref,sheetName:s.name,sheets:all.map(s=>s.name),trace,tick:()=>{if(++operations>Math.max(100000,Math.min(10000000,book.xlsxImport?.summary.formulas*1000||0)))throw new FormulaError('#LÍMITE!');},enterLambda:()=>{if(lambdaDepth>=100)throw new FormulaError('#LÍMITE!');lambdaDepth++;},leaveLambda:()=>lambdaDepth--,
   read:(r,name)=>solve(pick(s,name),r,stack),raw:(r,name)=>{const t=pick(s,name);return t.protected&&t.cells[r]?.hiddenFormula?'':raw(s,r,name);},name:n=>resolveName(s,n,stack),
   isBlank:(r,name)=>{const t=pick(s,name);return !t.cells[r]?.raw&&!spills.has(key(t,r));},
   visible:(r,name,hidden)=>{const t=pick(s,name),row=position(r)[0];if(hidden&&(t.hiddenRows?.includes(row)||outlineHidden(t,row)))return false;return dataRowVisible(t,row,id=>outward(solve(t,id,stack)),address,range);},
@@ -37,11 +39,11 @@ format:(v,code)=>{const token=code.toLowerCase(),dates={'dd/mm/yyyy':'short','dd
   try{position(ref);}catch{return new FormulaError('#¡REF!');}const id=key(s,ref),cell=s.cells[ref],raw=String(cell?.raw||'');
   if(memo.has(id)){const v=memo.get(id);return array?v:Array.isArray(v)?v[0][0]:v;}
   if(cell?.textValue)return raw.startsWith("'")?raw.slice(1):raw;
-  if(!raw.startsWith('=')){if(!raw&&spills.has(id))return spills.get(id).result;if(!raw&&stack.size){const readers=emptyReads.get(id)||new Set();for(const item of stack)if(!item.startsWith('name:'))readers.add(item);emptyReads.set(id,readers);}return literal(raw);}
+  if(!raw.startsWith('=')){if(!raw&&spills.has(id))return spills.get(id).result;if(!raw&&stack.size){const readers=emptyReads.get(id)||new Set();for(const item of stack)if(!item.startsWith('name:'))readers.add(item);emptyReads.set(id,readers);}return cell?.xlsxType==='number'&&raw!==''&&Number.isFinite(Number(raw))?Number(raw):literal(raw);}
   if(stack.has(id)||visiting.has(id))return new FormulaError('#CIRCULAR!');if(stack.size>150)return new FormulaError('#LÍMITE!');
   visiting.add(id);const next=new Set(stack).add(id),cached=s.calculatedValues?.[ref];let result;
   if(!force&&book.calculation?.mode==='manual'&&cached?.formula===raw)result=decode(cached.result);
-  else result=evaluateFormula(raw,context(s,ref,next));
+  else result=evaluateFormula(cell.formulaSyntax==='xlsx'?xlsxFormula(raw,book):raw,context(s,ref,next));
   if(Array.isArray(result))result=checkArray(s,ref,result);
   if(!force&&book.calculation?.mode==='manual'&&cached?.formula!==raw){s.calculatedValues||={};s.calculatedValues[ref]={formula:raw,result:encode(result)};}
   visiting.delete(id);memo.set(id,result);return array?result:Array.isArray(result)?result[0][0]:result;
@@ -57,9 +59,9 @@ format:(v,code)=>{const token=code.toLowerCase(),dates={'dd/mm/yyyy':'short','dd
  };
  const api={solve,prepare,spills,memo,context,all};return api;
 }
-export function prepareCalculation(book){bindWorkbook(book);const r=runtime(book);runtimes.set(book,r);r.prepare();return r;}
+export function prepareCalculation(book,{reuse=false}={}){bindWorkbook(book);const r=reuse&&runtimes.get(book)||runtime(book);runtimes.set(book,r);r.prepare();return r;}
 export function calculatedValue(sheet,ref){
- const book=owner(sheet),mounted=book.sheets.some(s=>s===sheet),r=(mounted?runtimes.get(book):null)||runtime(book,{override:sheet});if(!runtimes.has(book)||!mounted)r.prepare();return outward(r.solve(sheet,ref));
+ const book=owner(sheet),mounted=book.sheets.some(s=>s===sheet),r=(mounted?runtimes.get(book):null)||runtime(book,{override:sheet});if(!runtimes.has(book)||!mounted)r.prepare();const result=outward(r.solve(sheet,ref));return sheet.cells[ref]?.formulaSyntax==='xlsx'?({'#N/D':'#N/A','#¡REF!':'#REF!','#¡DIV/0!':'#DIV/0!','#¡VALOR!':'#VALUE!','#¿NOMBRE?':'#NAME?','#¡NUM!':'#NUM!','#¡NULO!':'#NULL!'}[result]||result):result;
 }
 export function spillOwner(sheet,ref){const book=owner(sheet),r=runtimes.get(book)||runtime(book,{override:sheet}).prepare();return r.spills.get(sheet.id+'!'+ref)?.anchor;}
 export function recalculateWorkbook(book,onlySheet=null){

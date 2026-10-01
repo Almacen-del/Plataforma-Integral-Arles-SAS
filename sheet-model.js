@@ -1,8 +1,9 @@
 import {assertBookStructure,cellEditable} from './sheet-protection.js';
 import {dataRowVisible,compareValidation,dateTimeInput} from './sheet-data-rules.js';
-export const ROWS=100,COLS=26;
-export const address=(r,c)=>String.fromCharCode(65+c)+(r+1);
-export function position(ref){const m=/^\$?([A-Z])\$?([1-9]\d*)$/.exec(String(ref).toUpperCase());if(!m||+m[2]>ROWS)throw Error('Referencia fuera del área de diseño (A1:Z100).');return [+m[2]-1,m[1].charCodeAt(0)-65];}
+import {ROWS,COLS,columnName,columnIndex} from './sheet-grid-limits.js';
+export {ROWS,COLS} from './sheet-grid-limits.js';
+export const address=(r,c)=>columnName(c)+(r+1);
+export function position(ref){const m=/^\$?([A-Z]+)\$?([1-9]\d*)$/.exec(String(ref).toUpperCase());if(!m||+m[2]>ROWS||columnIndex(m[1])>=COLS)throw Error('Referencia fuera del área de diseño (A1:'+address(ROWS-1,COLS-1)+').');return [+m[2]-1,columnIndex(m[1])];}
 export function range(ref){const parts=String(ref).toUpperCase().split(':');if(parts.length>2)throw Error('Escribe una celda o un rango, por ejemplo B2:D8.');const a=position(parts[0]),b=position(parts[1]||parts[0]),out=[];for(let r=Math.min(a[0],b[0]);r<=Math.max(a[0],b[0]);r++)for(let c=Math.min(a[1],b[1]);c<=Math.max(a[1],b[1]);c++)out.push(address(r,c));return out;}
 export const newSheet=(name='Hoja 1')=>({id:crypto.randomUUID(),name,cells:{},freeze:false,grid:true,showFormulas:false,protected:false,page:{size:'A4',orientation:'portrait'},rules:[]});
 export const newBook=()=>({version:1,id:crypto.randomUUID(),name:'Libro sin título',sheets:[newSheet()],active:0});
@@ -54,7 +55,7 @@ export function formatNumber(v,cell={}){
  if(Number.isInteger(cell.decimals))return numeric(v);
  return String(Math.round(v*1e10)/1e10).replace('.',locale==='en-US'?'.':',');
 }
-export function display(sheet,ref){const cell=sheet.cells[ref]||{};if(sheet.showFormulas&&!(sheet.protected&&cell.hiddenFormula)&&String(cell.raw).startsWith('='))return cell.raw;return formatNumber(value(sheet,ref),cell);}
+export function display(sheet,ref){const cell=sheet.cells[ref]||{};if(sheet.showFormulas&&!(sheet.protected&&cell.hiddenFormula)&&String(cell.raw).startsWith('='))return cell.raw;const v=value(sheet,ref);if(cell.format==='custom'&&cell.customCode===cell.xlsxNumFmt&&globalThis.SSF){try{return globalThis.SSF.format(cell.xlsxNumFmt,v,{date1904:!!workbookFor(sheet)?.xlsxImport?.date1904});}catch{}}return formatNumber(v,cell);}
 export function validationPasses(sheet,ref,rule){
  const from=position(range(rule.range)[0]),to=position(ref),bound=x=>{if(typeof x==='number')return x;if(String(x).startsWith('='))return dataRuleValue(sheet,ref,translateFormula(x,to[0]-from[0],to[1]-from[1]));return Number(String(x).replace(',','.'));};
  try{return compareValidation(value(sheet,ref),rule,bound);}catch{return false;}
@@ -68,7 +69,7 @@ export function writeCells(sheet,changes){
 }
 export function paste(sheet,start,text){const [r,c]=position(start),rows=text.replace(/\r/g,'').replace(/\n$/,'').split('\n').map(x=>x.split('\t'));if(r+rows.length>ROWS||rows.some(x=>c+x.length>COLS))throw Error('El pegado excede A1:Z100. No se pegó ninguna celda.');const changes={};rows.forEach((row,dr)=>row.forEach((v,dc)=>changes[address(r+dr,c+dc)]=v));writeCells(sheet,changes);return Object.keys(changes);}
 
-export const FORMAT_KEYS=['themeFill','themeColor','themeFont','checkbox','font','size','bold','italic','underline','strike','script','rotation','shrink','hiddenFormula','pattern','diagonalUp','diagonalDown','color','fill','align','valign','wrap','border','format','decimals','currency','locale','useGrouping','negativeStyle','dateType','timeType','fractionType','customCode','locked','indent'];
+export const FORMAT_KEYS=['xlsxNumFmt','themeFill','themeColor','themeFont','checkbox','font','size','bold','italic','underline','strike','script','rotation','shrink','hiddenFormula','pattern','diagonalUp','diagonalDown','color','fill','align','valign','wrap','border','format','decimals','currency','locale','useGrouping','negativeStyle','dateType','timeType','fractionType','customCode','locked','indent'];
 export function cellFormat(cell={}){return Object.fromEntries(FORMAT_KEYS.filter(k=>cell[k]!==undefined).map(k=>[k,cell[k]]));}
 export function normalizeSheetLink(text){
  const link=String(text).trim();
@@ -80,7 +81,7 @@ export function normalizeSheetLink(text){
 }
 function remapCellLink(cell,map){return typeof cell.link==='string'&&/^#[A-Z][1-9]\d*$/i.test(cell.link)?{...cell,link:'#'+(map(cell.link.slice(1).toUpperCase())||'¡REF!')}:cell;}
 export function writable(sheet){if(sheet.protected)throw Error('Desprotege la hoja para modificarla.');}
-export function translateFormula(raw,dr,dc){return transformFormulaReferences(raw,({ref,qualifier})=>{const mapped=ref.split(':').map(token=>{const [,ac,c,ar,r]=/^(\$?)([A-Z])(\$?)([1-9]\d*)$/i.exec(token),row=+r-1+(ar?0:dr),col=c.toUpperCase().charCodeAt(0)-65+(ac?0:dc);return row<0||row>=ROWS||col<0||col>=COLS?'#¡REF!':ac+String.fromCharCode(65+col)+ar+(row+1);});return mapped.includes('#¡REF!')?'#¡REF!':qualifier+mapped.join(':');});}
+export function translateFormula(raw,dr,dc){return transformFormulaReferences(raw,({ref,qualifier})=>{const mapped=ref.split(':').map(token=>{const [,ac,c,ar,r]=/^(\$?)([A-Z]+)(\$?)([1-9]\d*)$/i.exec(token),row=+r-1+(ar?0:dr),col=columnIndex(c)+(ac?0:dc);return row<0||row>=ROWS||col<0||col>=COLS?'#¡REF!':ac+columnName(col)+ar+(row+1);});return mapped.includes('#¡REF!')?'#¡REF!':qualifier+mapped.join(':');});}
 const preserveReferenceFlags=(old,mapped)=>{const original=old.split(':'),next=mapped.split(':');return next.map((ref,i)=>{const flags=/^(\$?)[A-Z](\$?)/i.exec(original[i]||original[0]);return flags[1]+ref[0]+flags[2]+ref.slice(1);}).join(':');};
 function rewriteSourceReferences(raw,source,current,mapper){return transformFormulaReferences(raw,(t,original)=>{if(t.sheet?t.sheet.toLowerCase()!==source.name.toLowerCase():current.id!==source.id)return original;const mapped=mapper(t.ref.replaceAll('$','').toUpperCase());return mapped?t.qualifier+preserveReferenceFlags(t.ref,mapped):'#¡REF!';});}
 // Compute all changes before committing a structural edit, including defined names.

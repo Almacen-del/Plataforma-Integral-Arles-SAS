@@ -1,5 +1,6 @@
 import './public/vendor/formulajs-4.6.1.js';
 import {functionCatalog} from './sheet-function-catalog.js';
+import {ROWS,COLS,columnName,columnIndex} from './sheet-grid-limits.js';
 const vendor=globalThis.formulajs;
 const catalogIds=new Set(functionCatalog.map(f=>f.id));
 export class FormulaError extends Error{}
@@ -37,14 +38,14 @@ function criteriaMatch(value,criterion){
  }
  const cmp=compare(value,target);return op==='='?cmp===0:op==='<>'?cmp!==0:op==='>'?cmp>0:op==='<'?cmp<0:op==='>='?cmp>=0:cmp<=0;
 }
-const bounds=ref=>{const m=/^\$?([A-Z])\$?([1-9]\d*)(?::\$?([A-Z])\$?([1-9]\d*))?$/.exec(ref.toUpperCase());if(!m||+m[2]>100||+(m[4]||m[2])>100)fail('#¡REF!');const a=[+m[2]-1,m[1].charCodeAt(0)-65],b=[+(m[4]||m[2])-1,(m[3]||m[1]).charCodeAt(0)-65];return [Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];};
-export function referenceMatrix(ref){const [r,c,rr,cc]=bounds(ref);return Array.from({length:rr-r+1},(_,i)=>Array.from({length:cc-c+1},(_,j)=>String.fromCharCode(65+c+j)+(r+i+1)));}
+const bounds=ref=>{const m=/^\$?([A-Z]+)\$?([1-9]\d*)(?::\$?([A-Z]+)\$?([1-9]\d*))?$/.exec(ref.toUpperCase());if(!m||+m[2]>ROWS||+(m[4]||m[2])>ROWS||columnIndex(m[1])>=COLS||columnIndex(m[3]||m[1])>=COLS)fail('#¡REF!');const a=[+m[2]-1,columnIndex(m[1])],b=[+(m[4]||m[2])-1,columnIndex(m[3]||m[1])];return [Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];};
+export function referenceMatrix(ref){const [r,c,rr,cc]=bounds(ref);if((rr-r+1)*(cc-c+1)>500000)fail('#LÍMITE!');return Array.from({length:rr-r+1},(_,i)=>Array.from({length:cc-c+1},(_,j)=>columnName(c+j)+(r+i+1)));}
 export function parseFormula(input){
  input=String(input).replace(/^=/,'');if(input.length>4000)fail('#LÍMITE!');
  const rx=/\s+|"(?:[^"]|"")*"|'(?:[^']|'')*'|#(?:¡?(?:REF|DIV\/0|VALOR|NUM|NULO)!|N\/D|NAME\?|SPILL!|¿NOMBRE\?|CIRCULAR!|CALC!|¡DESBORDAMIENTO!)|(?:\d+(?:[.,]\d+)?|\.\d+)(?:E[+-]?\d+)?|[A-ZÁÉÍÓÚÑ_$][A-ZÁÉÍÓÚÑ_$.0-9]*|>=|<=|<>|[=<>+\-*/^&()%:;!{}\\#@,]/giy;
  const ts=[];let at=0;while(at<input.length){rx.lastIndex=at;const m=rx.exec(input);if(!m)fail('#FÓRMULA!');at=rx.lastIndex;if(!/^\s+$/.test(m[0]))ts.push({t:m[0],start:m.index,end:at});}let i=0,depth=0;
  const peek=()=>ts[i]?.t,take=t=>{if(peek()!==t)fail('#FÓRMULA!');return ts[i++];},stamp=(n,start)=>({...n,code:input.slice(start,ts[i-1]?.end||start)});
- const refToken=t=>/^\$?[A-Z]\$?[1-9]\d*$/i.test(t||'');
+ const refToken=t=>/^\$?[A-Z]+\$?[1-9]\d*$/i.test(t||'');
  const primary=()=>{if(++depth>100)fail('#LÍMITE!');const token=ts[i++];if(!token)fail('#FÓRMULA!');const t=token.t,start=token.start;let n;
   if(t==='+'||t==='-'||t==='@')n={op:t==='@'?'@':'unary'+t,args:[primary()]};
   else if(t==='('){n=expr();take(')');}
@@ -112,7 +113,7 @@ export function evaluateFormula(input,context={}){
    if(fn==='FORMULATEXT'||fn==='ISFORMULA'){arity(n,1);if(!arg?.ref||ref.includes(':'))return fn==='ISFORMULA'?false:fail('#N/D');const raw=context.raw?.(ref,arg.sheet)||'';return fn==='ISFORMULA'?raw.startsWith('='):raw.startsWith('=')?raw:fail('#N/D');}
    if(fn==='INDIRECT'){arity(n,1,2);if(n.args[1]&&!bool(evalNode(n.args[1],env)))fail('#NO.COMPATIBLE!');const parsed=parseFormula(text(evalNode(arg,env)));if(!parsed.ref)fail('#¡REF!');return readRef({...parsed,ref:parsed.ref.includes(':')?parsed.ref:parsed.ref+':'+parsed.ref});}
    const [r,c,rr,cc]=bounds(ref);
-   if(fn==='OFFSET'){arity(n,3,5);if(!arg.ref)fail('#¡VALOR!');const dr=Math.trunc(num(evalNode(n.args[1],env))),dc=Math.trunc(num(evalNode(n.args[2],env))),h=n.args[3]?Math.trunc(num(evalNode(n.args[3],env))):rr-r+1,w=n.args[4]?Math.trunc(num(evalNode(n.args[4],env))):cc-c+1;if(r+dr<0||c+dc<0||h<1||w<1||r+dr+h>100||c+dc+w>26)fail('#¡REF!');const a=String.fromCharCode(65+c+dc)+(r+dr+1),b=String.fromCharCode(65+c+dc+w-1)+(r+dr+h);return readRef({ref:a+':'+b,sheet:arg.sheet});}
+   if(fn==='OFFSET'){arity(n,3,5);if(!arg.ref)fail('#¡VALOR!');const dr=Math.trunc(num(evalNode(n.args[1],env))),dc=Math.trunc(num(evalNode(n.args[2],env))),h=n.args[3]?Math.trunc(num(evalNode(n.args[3],env))):rr-r+1,w=n.args[4]?Math.trunc(num(evalNode(n.args[4],env))):cc-c+1;if(r+dr<0||c+dc<0||h<1||w<1||r+dr+h>ROWS||c+dc+w>COLS)fail('#¡REF!');const a=columnName(c+dc)+(r+dr+1),b=columnName(c+dc+w-1)+(r+dr+h);return readRef({ref:a+':'+b,sheet:arg.sheet});}
    arity(n,fn==='ROW'||fn==='COLUMN'?0:1,1);if(fn==='ROWS'||fn==='COLUMNS'){const v=matrix(evalNode(arg,env));return fn==='ROWS'?v.length:v[0].length;}if(arg&&!arg.ref)fail('#NO.COMPATIBLE!');return fn==='ROW'?r===rr?r+1:Array.from({length:rr-r+1},(_,i)=>[r+i+1]):c===cc?c+1:[Array.from({length:cc-c+1},(_,i)=>c+i+1)];
   }
   if(!functionSupport(fn).available)fail(functionCatalog.some(f=>f.id===fn)?'#NO.COMPATIBLE!':'#¿NOMBRE?');
@@ -144,7 +145,7 @@ if(['SUM','AVERAGE','MIN','MAX','COUNT','COUNTA'].includes(fn)){arity(n,1,255);c
   if(fn==='VALUE'){arity(n,1);return num(args[0]);}
   if(fn==='TEXT'){arity(n,2);return context.format?.(num(args[0]),text(args[1]))??fail('#NO.COMPATIBLE!');}
   if(fn==='FIXED'||fn==='DOLLAR'){arity(n,1,fn==='FIXED'?3:2);const decimals=Math.trunc(num(args[1]??2));if(Math.abs(decimals)>20)fail('#¡NUM!');const factor=10**decimals,rounded=Math.sign(num(args[0]))*Math.round(Math.abs(num(args[0]))*factor)/factor;return new Intl.NumberFormat('es-CO',{minimumFractionDigits:Math.max(0,decimals),maximumFractionDigits:Math.max(0,decimals),useGrouping:fn==='DOLLAR'||!bool(args[2]??false),...(fn==='DOLLAR'?{style:'currency',currency:'COP',currencyDisplay:'narrowSymbol'}:{})}).format(rounded);}
-  if(fn==='ADDRESS'){arity(n,2,5);const r=Math.trunc(num(args[0])),c=Math.trunc(num(args[1])),type=args[2]==null?1:num(args[2]);if(r<1||r>100||c<1||c>26||type<1||type>4)fail('#¡REF!');if(args[3]!==undefined&&!bool(args[3]))fail('#NO.COMPATIBLE!');return (args[4]?"'"+text(args[4]).replaceAll("'","''")+"'!":'')+([1,3].includes(type)?'$':'')+String.fromCharCode(64+c)+([1,2].includes(type)?'$':'')+r;}
+  if(fn==='ADDRESS'){arity(n,2,5);const r=Math.trunc(num(args[0])),c=Math.trunc(num(args[1])),type=args[2]==null?1:num(args[2]);if(r<1||r>ROWS||c<1||c>COLS||type<1||type>4)fail('#¡REF!');if(args[3]!==undefined&&!bool(args[3]))fail('#NO.COMPATIBLE!');return (args[4]?"'"+text(args[4]).replaceAll("'","''")+"'!":'')+([1,3].includes(type)?'$':'')+columnName(c-1)+([1,2].includes(type)?'$':'')+r;}
   if(fn==='INDEX'){arity(n,2,4);const a=matrix(args[0]);let r=Math.trunc(num(args[1])),c=args[2]===undefined?a[0].length>1?0:1:Math.trunc(num(args[2]));if(args[3]!==undefined)fail('#NO.COMPATIBLE!');if(a.length===1&&args[2]===undefined){c=r;r=1;}if(r<0||r>a.length||c<0||c>a[0].length)fail('#¡REF!');return r===0?c===0?a:a.map(row=>[row[c-1]]):c===0?[a[r-1]]:a[r-1][c-1];}
   if(fn==='XMATCH'||fn==='XLOOKUP'){
    arity(n,fn==='XMATCH'?2:3,fn==='XMATCH'?4:6);const a=args[1].flat?.(Infinity)||[args[1]],mode=args[fn==='XMATCH'?2:4]===undefined?0:num(args[fn==='XMATCH'?2:4]),search=args[fn==='XMATCH'?3:5]===undefined?1:num(args[fn==='XMATCH'?3:5]);if(![0,-1,1].includes(mode)||![1,-1].includes(search))fail('#NO.COMPATIBLE!');const order=search===-1?a.map((_,i)=>i).reverse():a.map((_,i)=>i);let i=order.find(i=>compare(a[i],args[0])===0);if(i===undefined&&mode){const candidates=order.filter(i=>mode===-1?compare(a[i],args[0])<0:compare(a[i],args[0])>0).sort((i,j)=>compare(a[i],a[j])*(mode===-1?-1:1));i=candidates[0];}if(i===undefined)return fn==='XLOOKUP'&&args[3]!==undefined?args[3]:fail('#N/D');if(fn==='XMATCH')return i+1;const result=matrix(args[2]),lookup=matrix(args[1]);if(lookup.length>1){if(result.length!==a.length)fail('#¡VALOR!');return result[i].length===1?result[i][0]:[result[i]];}if(result[0].length!==a.length)fail('#¡VALOR!');return result.length===1?result[0][i]:result.map(row=>[row[i]]);
@@ -181,9 +182,9 @@ export function formulaIdentifiers(raw){const out=new Set();try{const walk=(n,lo
 // Rewrite only reference tokens; preserve string literals, sheet labels and function names.
 export function transformFormulaReferences(raw,callback){
  if(!String(raw).startsWith('='))return raw;
- return String(raw).replace(/"(?:[^"]|"")*"|(?:(?:'(?:[^']|'')*'|[A-ZÁÉÍÓÚÑ_][A-ZÁÉÍÓÚÑ_0-9.]*)!\s*)?\$?[A-Z]\$?[1-9]\d*(?::\$?[A-Z]\$?[1-9]\d*)?/gi,(token,at,source)=>{
+ return String(raw).replace(/"(?:[^"]|"")*"|(?:(?:'(?:[^']|'')*'|[A-ZÁÉÍÓÚÑ_][A-ZÁÉÍÓÚÑ_0-9.]*)!\s*)?\$?[A-Z]+\$?[1-9]\d*(?::\$?[A-Z]+\$?[1-9]\d*)?/gi,(token,at,source)=>{
   if(token.startsWith('"')||/[A-ZÁÉÍÓÚÑ_0-9.]/i.test(source[at-1]||'')||/^[A-ZÁÉÍÓÚÑ_0-9.]|^\s*\(/i.test(source.slice(at+token.length)))return token;
-  const m=/^(.*?)((?:\$?[A-Z]\$?[1-9]\d*)(?::\$?[A-Z]\$?[1-9]\d*)?)$/i.exec(token),qualifier=m[1],label=qualifier.replace(/!\s*$/,'');
+  const m=/^(.*?)((?:\$?[A-Z]+\$?[1-9]\d*)(?::\$?[A-Z]+\$?[1-9]\d*)?)$/i.exec(token),qualifier=m[1],label=qualifier.replace(/!\s*$/,'');
   return callback({ref:m[2],sheet:qualifier?label.startsWith("'")?label.slice(1,-1).replaceAll("''","'"):label:null,qualifier},token);
  });
 }
