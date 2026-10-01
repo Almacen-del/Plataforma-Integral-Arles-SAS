@@ -1,5 +1,6 @@
 import {mkdir,copyFile,cp} from 'node:fs/promises';
 await mkdir('dist/public',{recursive:true});
+for(const f of ['pdf-model.js','pdf-workspace.js','pdf-workspace.css'])await copyFile(f,'dist/'+f);
 for(const f of ['sheet-developer.js','sheet-developer-model.js'])await copyFile(f,'dist/'+f);
 for(const f of ['sheet-view.js','sheet-view-model.js'])await copyFile(f,'dist/'+f);
 for(const f of ['sheet-review.js','sheet-review-model.js','sheet-review-language.js','sheet-protection.js'])await copyFile(f,'dist/'+f);
