@@ -29,3 +29,9 @@ Esta entrega implementa importación y descarga del original. La exportación XL
 - SHA-256 del original antes y después: e431a0f1d314c9b4c8a3d98692942a79b87cd637df50d6457b4a5a532610393c.
 
 Regresión: 137 pruebas de modelo de hojas y recorridos completos de las fichas anteriores. Verificación específica en tests/sheet-xlsx.test.mjs; comparación del documento recibido y capturas en tmp/ma-f-009-fidelity.
+
+## Publicación y verificación
+
+Implementación guardada en el commit be24a36. Publicada en el proyecto Vercel plataforma-integral-arles-demo, equipo almacen-2787s-projects. Despliegue dpl_12ycEo2JBybJog1dBGfADLp2iU6G en estado READY. URL pública: https://plataforma-integral-arles-demo.vercel.app/?editor=hojas.
+
+Se repitió la prueba con el documento real en la web pública: importación completa, navegación a E4000, alturas de fila originales convertidas a píxeles, logotipo visible, descarga idéntica al original y recuperación del borrador al recargar. Cero diferencias en los 72.236 valores y las 5.904 fórmulas/resultados guardados; sin errores JavaScript ni solicitudes de subida. El archivo de trabajo permaneció en el navegador de prueba. Captura privada en tmp/ma-f-009-fidelity/imported-public.png.
