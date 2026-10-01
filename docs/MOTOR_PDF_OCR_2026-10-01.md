@@ -35,4 +35,6 @@ Los originales y sus páginas no se modifican por reconocer texto. Los PDF con f
 
 Repetición: generar el fixture con el Python de pruebas (`tests/pdf-ocr-fixture.py`), iniciar `npm start` y ejecutar `npm run test:ocr`. `npm run test:pdf` incluye las pruebas de modelo OCR y el flujo PDF previo. El fixture es exclusivamente de QA; no contiene datos operativos.
 
-Publicación y comprobación en producción: se registran al terminar el despliegue.
+Implementación guardada en el commit `52ffd6d`. Publicación `dpl_HoAR43i4rvhozPQN9fqsYogTxoHP`, estado READY. URL: https://plataforma-integral-arles-demo.vercel.app/?editor=pdf.
+
+Verificación de producción: HTTP 200 del módulo OCR, modelo español y licencias. Se repitieron contra la URL pública tanto el flujo OCR real como el flujo completo PDF anterior; ambos pasaron sin errores JavaScript, con selección/copia/búsqueda/TXT/guardado/cancelación y sin solicitudes externas ni uploads. Agent-browser confirmó la ficha OCR visible; captura `tmp/pdf-ocr-publicado-2026-10-01.png`. Build y 51 pruebas automáticas (34 generales, 10 PDF, 7 OCR) aprobadas.
