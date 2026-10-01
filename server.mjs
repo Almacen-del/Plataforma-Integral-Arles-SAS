@@ -20,8 +20,9 @@ for(const f of ['sheet-review.js','sheet-review-model.js','sheet-review-language
 for(const file of await readdir(path.join(root,'public/vendor/review')))allowed.add('/public/vendor/review/'+file);
 for(const f of ['sheet-view.js','sheet-view-model.js'])allowed.add('/'+f);
 for(const f of ['sheet-developer.js','sheet-developer-model.js'])allowed.add('/'+f);
-for(const f of ['pdf-model.js','pdf-workspace.js','pdf-workspace.css'])allowed.add('/'+f);
+for(const f of ['pdf-ocr.js','pdf-model.js','pdf-workspace.js','pdf-workspace.css'])allowed.add('/'+f);
 for(const entry of await readdir(path.join(root,'public/vendor/pdf'),{recursive:true,withFileTypes:true}))if(entry.isFile())allowed.add('/'+path.relative(root,path.join(entry.parentPath,entry.name)).replaceAll('\\','/'));
+for(const entry of await readdir(path.join(root,'public/vendor/ocr'),{recursive:true,withFileTypes:true}))if(entry.isFile())allowed.add('/'+path.relative(root,path.join(entry.parentPath,entry.name)).replaceAll('\\','/'));
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.wasm':'application/wasm', '.png': 'image/png', '.jpeg':'image/jpeg', '.jpg':'image/jpeg', '.json':'application/json; charset=utf-8', '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 http.createServer(async (req, res) => {
   const route = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;

@@ -6,3 +6,5 @@ tests
 .env*
 node_modules
 dist
+
+!public/vendor/pdf/pdf-lib-LICENSE.md

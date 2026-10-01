@@ -1,3 +1,4 @@
+import {validateOCR} from './pdf-ocr.js';
 export const PDF_LIMITS={bytes:25*1024*1024,pages:300,sources:8,annotations:500};
 export const newPDFSession=()=>({version:1,id:crypto.randomUUID(),name:'Documento PDF',sources:[],pages:[]});
 export const normalRotation=n=>((n%360)+360)%360;
@@ -8,7 +9,7 @@ export function validatePDFSession(state){
  if(!String(state.name).trim()||String(state.name).length>120)throw Error('Escribe un nombre de hasta 120 caracteres.');
  if(state.sources.some(s=>!s||typeof s.id!=='string'||!s.id||!Number.isInteger(s.pageCount)||s.pageCount<1||s.pageCount>PDF_LIMITS.pages))throw Error('Un archivo de origen del borrador no es válido.');
  const sources=new Map(state.sources.map(s=>[s.id,s]));if(sources.size!==state.sources.length)throw Error('Hay archivos de origen duplicados.');
- const ids=new Set();for(const p of state.pages){const source=sources.get(p?.sourceId);if(!p||typeof p.id!=='string'||!p.id||!source||ids.has(p.id)||!Number.isInteger(p.index)||p.index<0||p.index>=source.pageCount||![0,90,180,270].includes(p.rotation)||!Array.isArray(p.annotations)||p.annotations.length>PDF_LIMITS.annotations)throw Error('Una página del borrador PDF no es válida.');ids.add(p.id);for(const a of p.annotations)validateAnnotation(a);}
+ const ids=new Set();for(const p of state.pages){const source=sources.get(p?.sourceId);if(!p||typeof p.id!=='string'||!p.id||!source||ids.has(p.id)||!Number.isInteger(p.index)||p.index<0||p.index>=source.pageCount||![0,90,180,270].includes(p.rotation)||!Array.isArray(p.annotations)||p.annotations.length>PDF_LIMITS.annotations)throw Error('Una página del borrador PDF no es válida.');ids.add(p.id);for(const a of p.annotations)validateAnnotation(a);if(p.ocr!==undefined)validateOCR(p.ocr);}
  return state;
 }
 export function appendPDFSource(state,source){
