@@ -1,0 +1,9 @@
+{
+  "nspell": "2.1.5",
+  "bundler": "esbuild 0.25.10",
+  "dictionaryCommit": "32b006a2c22a4ac7e8ed3f03346f7b3d85a970a4",
+  "source": "https://github.com/LibreOffice/dictionaries/tree/32b006a2c22a4ac7e8ed3f03346f7b3d85a970a4/es",
+  "spellingLicense": "MPL-1.1",
+  "thesaurusLicense": "LGPL-2.1",
+  "dictionaryBytes": 751422
+}

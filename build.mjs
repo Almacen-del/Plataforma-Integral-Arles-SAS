@@ -1,5 +1,8 @@
 import {mkdir,copyFile,cp} from 'node:fs/promises';
 await mkdir('dist/public',{recursive:true});
+for(const f of ['sheet-developer.js','sheet-developer-model.js'])await copyFile(f,'dist/'+f);
+for(const f of ['sheet-view.js','sheet-view-model.js'])await copyFile(f,'dist/'+f);
+for(const f of ['sheet-review.js','sheet-review-model.js','sheet-review-language.js','sheet-protection.js'])await copyFile(f,'dist/'+f);
 await copyFile('native-document.js','dist/native-document.js');
 await copyFile('native-tools.js','dist/native-tools.js');
 for(const file of ['native-assets.js','native-identity.js','native-review.js','native-history.js','native-history-model.js','native-pages.js','native-page-layout.js'])await copyFile(file,'dist/'+file);
@@ -54,4 +57,6 @@ await copyFile('native-references.js','dist/native-references.js');
 
 for(const f of ['native-view.js','native-tracking.js','native-merge.js','native-merge-model.js','native-merge-labels.js'])await copyFile(f,'dist/'+f);
 
-for(const f of ['sheet-model.js','sheet-workspace.js','sheet-workspace.css'])await copyFile(f,'dist/'+f);
+for(const f of ['sheet-model.js','sheet-workspace.js','sheet-workspace.css','sheet-insert.js','sheet-insert-model.js','sheet-insert-charts.js','sheet-layout-model.js','sheet-layout.js','sheet-function-arguments.js','sheet-function-catalog.js','sheet-formula-engine.js','sheet-calculation.js','sheet-formulas.js'])await copyFile(f,'dist/'+f);
+
+for(const f of ['sheet-data.js','sheet-data-model.js','sheet-data-rules.js'])await copyFile(f,'dist/'+f);
