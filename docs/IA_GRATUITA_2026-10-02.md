@@ -32,4 +32,6 @@ El límite oficial consultado para GPT OSS 20B en Free es 30 solicitudes/minuto,
 
 Ocho pruebas de API con proveedores simulados: autenticación, membresía, configuración ausente, RLS mediante token de usuario, separación de fuentes, filtrado de demos, cuota y ocultación de errores/secretos. Prueba de navegador con backend simulado: respuesta de IA, referencia, historial y texto HTML escapado. No se enviaron registros reales al proveedor durante las pruebas.
 
+Publicación: `dpl_7VgmHZonUKxjyj8rpkGvyNXBTs5p`, READY, código `61af93c`, alias https://plataforma-integral-arles-demo.vercel.app . Verificación pública: GET de API 200 con `ready:false`, POST anónimo rechazado 401, interfaz muestra activación pendiente y exige sesión, sin errores JavaScript. Suite general: 50 pruebas aprobadas. Captura privada local `tmp/ai-prepared-public.png`.
+
 Fuentes oficiales verificadas: [modelos](https://console.groq.com/docs/models), [límites](https://console.groq.com/docs/rate-limits), [compatibilidad API](https://console.groq.com/docs/openai), [tratamiento de datos](https://console.groq.com/docs/your-data), [funciones Node de Vercel](https://vercel.com/docs/functions/runtimes/node-js).
