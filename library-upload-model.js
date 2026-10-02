@@ -1,5 +1,5 @@
 import {createFolder,ROOT,ancestors,LIBRARY_ROOTS} from './model.js';
-export const MAX_UPLOAD_FILE=10*1024*1024,MAX_UPLOAD_TOTAL=200*1024*1024,MAX_UPLOAD_ITEMS=1000;
+export const MAX_UPLOAD_FILE=50*1024*1024,MAX_UPLOAD_TOTAL=200*1024*1024,MAX_UPLOAD_ITEMS=1000;
 export function pathParts(path){const parts=String(path).split('/');if(parts.some(p=>!p||p==='.'||p==='..'||/[\\\x00-\x1f]/.test(p)))throw Error('Ruta de archivo no válida.');return parts;}
 export async function readDroppedEntries(roots){
  const result=[];async function walk(entry,parent=''){
@@ -14,7 +14,7 @@ export function planUpload(original,destination,entries){
  if(!entries.length)throw Error('No se encontraron archivos. Para conservar carpetas vacías utiliza el arrastre.');
  if(entries.length>MAX_UPLOAD_ITEMS)throw Error('Máximo 1.000 archivos y carpetas por carga.');
  const state=structuredClone(original),paths=new Map(),folders=new Map([['',destination]]),files=[],renamed=[];let bytes=0;
- for(const entry of entries){const parts=pathParts(entry.path);if(paths.has(entry.path))throw Error('Ruta repetida en el lote: '+entry.path);paths.set(entry.path,entry);if(!entry.directory){if(!entry.file)throw Error('No se pudo leer '+entry.path);if(entry.file.size>MAX_UPLOAD_FILE)throw Error(entry.path+': supera 10 MB.');bytes+=entry.file.size;}}
+ for(const entry of entries){const parts=pathParts(entry.path);if(paths.has(entry.path))throw Error('Ruta repetida en el lote: '+entry.path);paths.set(entry.path,entry);if(!entry.directory){if(!entry.file)throw Error('No se pudo leer '+entry.path);if(entry.file.size>MAX_UPLOAD_FILE)throw Error(entry.path+': pesa '+(entry.file.size/1024/1024).toFixed(1)+' MB y supera el máximo de 50 MB por archivo. Divide ese archivo o retíralo del lote para continuar.');bytes+=entry.file.size;}}
  if(bytes>MAX_UPLOAD_TOTAL)throw Error('El lote supera 200 MB. Divide la carga.');
  function unique(name,exists,file=false){let result=name,n=2;const dot=file?name.lastIndexOf('.'):-1,base=dot>0?name.slice(0,dot):name,ext=dot>0?name.slice(dot):'';while(exists(result))result=base+' ('+n+++')'+ext;return result;}
  function directory(parts){const path=parts.join('/');if(folders.has(path))return folders.get(path);if(paths.get(path)&&!paths.get(path).directory)throw Error('Una ruta contiene un archivo como carpeta: '+path);const parent=directory(parts.slice(0,-1)),name=parts.at(-1),chosen=unique(name,n=>state.folders.some(f=>f.parent===parent&&f.name.toLocaleLowerCase()===n.toLocaleLowerCase()));const folder=createFolder(state,parent,chosen);folders.set(path,folder.id);if(chosen!==name)renamed.push(path+' → '+chosen);return folder.id;}
