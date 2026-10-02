@@ -17,6 +17,7 @@ const KEY='arles-documental-prototipo-v1';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const load=()=>JSON.parse(localStorage.getItem(KEY));
 const modal=document.createElement('dialog');modal.className='nd-window';document.body.append(modal);
+let libraryContext=null;
 let doc,baseRevision=0,dirty=false,editing=false,isNew=false,busy=false,opener;
 let layout=pageSettings();
 let identity=identitySettings();
@@ -50,13 +51,18 @@ export async function openNativeDocument(value){
   const vs=current.versions||[],v=vs.find(v=>v.status==='current')||vs.at(-1);
   if(v?.fileId){const {previewFile}=await import('./document-control.js');try{await previewFile(current.id+'|'+v.id);}catch(e){alert(e.message);}return;}
  }
- opener=document.activeElement;doc=structuredClone(current);isNew=false;editing=false;dirty=false;baseRevision=doc.editorContent?.revision||0;render();modal.showModal();
+ libraryContext=null;opener=document.activeElement;doc=structuredClone(current);isNew=false;editing=false;dirty=false;baseRevision=doc.editorContent?.revision||0;render();modal.showModal();
+}
+
+export function openImportedWord(value,context){
+ if(modal.open)throw Error('Cierra el documento abierto antes de abrir otro Word.');
+ libraryContext=context;opener=document.activeElement;doc=structuredClone(value);isNew=false;editing=false;dirty=false;baseRevision=doc.editorContent.revision||0;render();modal.showModal();
 }
 
 export function createNativeDocument(folder,example=false){
  if(modal.open)return;
  const s=load();if(!s.folders.some(f=>f.id===folder)){alert('Entra primero en la carpeta donde guardarás el documento.');return;}
- opener=document.activeElement;const id=crypto.randomUUID();
+ libraryContext=null;opener=document.activeElement;const id=crypto.randomUUID();
  doc={id,name:example?'Ejemplo de procedimiento Arles':'Documento nuevo',code:'DOC-'+id.slice(0,8).toUpperCase(),type:'ARLES',folder,linkedFolders:[],shared:[],status:'Borrador',version:'01',origin:'internal',documentKind:'Documento',ownerArea:s.folders.find(f=>f.id===folder)?.area||'General',description:'Documento creado con el editor Arles',editorContent:{revision:0,html:example?'<h1>Procedimiento de ejemplo</h1><p>Contenido ficticio para probar el editor.</p><h2>Objetivo</h2><p>Registrar y revisar las actividades del área.</p><h2>Actividades</h2><ol><li>Preparar la actividad.</li><li>Registrar el resultado.</li></ol><table><tbody><tr><th>Actividad</th><th>Responsable</th></tr><tr><td>Revisión</td><td>Persona de ejemplo</td></tr></tbody></table>':'<p><br></p>'},editorHistory:[]};
  if(example)doc.editorContent.html+='<div data-page-break="true" contenteditable="false" aria-label="Salto de página"><br></div><h2>Evidencias y observaciones</h2><p>Esta sección comenzará en una página nueva al imprimir o guardar como PDF.</p>';
  doc.editorContent.identity={enabled:true,showLogo:true,date:new Date().toLocaleDateString('en-CA'),footer:example?'Documento de ejemplo · sin validez operativa':'',numberPages:true};
@@ -74,6 +80,7 @@ function render(){
  <div class="nd-actions"><span id="nd-state" role="status">${native?(editing?'Cambios sin guardar':(cloudActive()?'Solo lectura · Supabase':'Solo lectura · Guardado en este navegador')):'Documento sin archivo adjunto'}</span>${native?`<button class="button secondary" data-nd="edit" ${editing||locked?'disabled':''}>Editar</button><button class="button primary" data-nd="save" ${!editing?'disabled':''}>Guardar cambios</button><button class="button secondary" data-nd="print">Imprimir / PDF</button><button class="button secondary" data-nd="docx" title="Descargar el contenido actual. Los comentarios e historial permanecen en la plataforma.">Descargar Word</button>`:''}</div>
  ${native?`<div class="nd-toolbar" aria-label="Herramientas de texto" ${!editing?'hidden':''}>${[['bold','Negrita'],['italic','Cursiva'],['underline','Subrayado'],['insertUnorderedList','Lista'],['insertOrderedList','Numeración'],['justifyLeft','Izquierda'],['justifyCenter','Centrar'],['justifyRight','Derecha'],['undo','Deshacer'],['redo','Rehacer']].map(([cmd,label])=>`<button type="button" data-command="${cmd}">${label}</button>`).join('')}<button data-block="h1">Título</button><button data-block="h2">Subtítulo</button><button data-block="p">Párrafo</button><button data-nd="table">Tabla 3 × 3</button></div><div class="nd-canvas"><article id="nd-paper" class="nd-paper" role="textbox" aria-label="Contenido del documento" aria-multiline="true" contenteditable="${editing}" spellcheck="true">${cleanDocumentHTML(doc.editorContent.html)}</article></div><details class="nd-history"><summary>Historial de guardados (${(doc.editorHistory||[]).length})</summary>${[...(doc.editorHistory||[])].reverse().map(h=>`<details><summary>Guardado ${h.revision} · ${esc(new Date(h.at).toLocaleString('es-CO'))}</summary><div class="nd-history-content">${cleanDocumentHTML(h.html)}</div></details>`).join('')||'<p>El primer guardado aparecerá aquí.</p>'}</details>`:`<div class="nd-empty"><h3>${esc(doc.name)}</h3><p>${esc(doc.description||'No hay contenido adjunto para visualizar.')}</p><p>Este elemento es una referencia de la biblioteca. Para escribir, crea un documento Arles dentro de su carpeta. La importación de Word se incorporará en otra etapa.</p></div>`}
  <footer class="nd-foot">${native?'El guardado conserva la carpeta y los enlaces. Cada guardado mantiene una revisión recuperable en el historial; no publica una versión aprobada.':'El original se conserva sin cambios.'}<span id="nd-error" role="alert"></span></footer>`;
+ if(libraryContext){const original=document.createElement('button');original.className='button secondary';original.textContent='Descargar original';original.dataset.nd='original';modal.querySelector('.nd-actions').append(original);const info=document.createElement('details');info.className='nd-import-notice';info.innerHTML='<summary>Word importado · cambios guardados como borrador</summary><p>'+esc((doc.importWarnings||[]).join(' '))+'</p>';modal.querySelector('.nd-canvas').before(info);}
  const dock=document.createElement('div');dock.className='nd-sticky-tools';const actions=modal.querySelector('.nd-actions');actions.before(dock);dock.append(actions);const toolbar=modal.querySelector('.nd-toolbar');if(toolbar)dock.append(toolbar);
  const paper=modal.querySelector('#nd-paper');if(paper){applyPage(paper,layout);const header=document.createElement('div');header.className='nd-identity-preview';paper.before(header);const footer=document.createElement('div');footer.className='nd-footer-preview';paper.after(footer);refreshIdentity();hydrateImages(modal);attachObjectWrap(paper);modal.querySelector('.nd-toolbar').innerHTML=toolsHTML(layout);if(editing)attachTools(modal,{changed:markDirty,getPage:()=>({...layout}),setPage:value=>{layout=pageSettings(value);applyPage(paper,layout);refreshIdentity();for(const el of modal.querySelectorAll('[data-page]'))el.value=String(layout[el.dataset.page]);},getIdentity:()=>({...identity}),setIdentity:value=>{identity=identitySettings(value);refreshIdentity();for(const el of modal.querySelectorAll('[data-identity]')){if(el.type==='checkbox')el.checked=identity[el.dataset.identity];else el.value=identity[el.dataset.identity];}},getReview:()=>structuredClone(comments),setReview:value=>{comments=structuredClone(value);paper.dispatchEvent(new Event('nd-review-refresh'));},doc});attachReview(modal,{editing,getComments:()=>comments,setComments:value=>{comments=value;},changed:markDirty});}
  modal.querySelector('#nd-paper')?.addEventListener('input',markDirty);
@@ -92,12 +99,19 @@ async function save(recovery=null){
  if(modal.querySelector('[data-tool=image-upload]')?.disabled){modal.querySelector('#nd-error').textContent='Espera a que termine de cargar la imagen antes de guardar.';return;}
  const html=cleanDocumentHTML(recovery?.html??modal.querySelector('#nd-paper').innerHTML),name=modal.querySelector('#nd-name')?.value.trim()??doc.name,code=modal.querySelector('#nd-code')?.value.trim()??doc.code;
  const page=recovery?pageSettings(recovery.page):{...layout},header=recovery?identitySettings(recovery.identity):{...identity},review=structuredClone(recovery?recovery.comments||[]:comments);
- if(!code){modal.querySelector('#nd-error').textContent='Escribe un código para el documento.';return;}
+ if(!code&&!libraryContext){modal.querySelector('#nd-error').textContent='Escribe un código para el documento.';return;}
  if(!name){modal.querySelector('#nd-error').textContent='Escribe un nombre para el documento.';return;}
  if(html.length>300000){modal.querySelector('#nd-error').textContent='Este documento supera el límite local de 300.000 caracteres.';return;}
  busy=true;modal.querySelector('[data-nd=save]').disabled=true;
  try{
-  const done=await auditedAction(()=>{
+  const done=await auditedAction(async()=>{
+   if(libraryContext){
+    const revision=baseRevision+1,at=new Date().toISOString(),actor=currentAuditActor(),target=structuredClone(doc);
+    target.editorHistory||=[];
+    if(!target.editorHistory.length)target.editorHistory.push({...target.editorContent,revision:baseRevision,at,reason:'Contenido importado antes del primer cambio',author:'',role:''});
+    target.editorContent={html,revision,page,identity:header,comments:review};target.editorHistory.push({...target.editorContent,at,name,code,author:actor?.name||'',role:actor?.role||'',reason:actor?.reason||'',...(recovery?{restoredFrom:recovery.revision}:{})});target.name=name;target.code=code;
+    await libraryContext.onSave(target);commitImages(target.editorHistory.map(h=>h.html).join('')); doc=target;baseRevision=revision;dirty=false;return;
+   }
    const s=load(),latest=s.documents.find(d=>d.id===doc.id);
    if(!isNew&&!latest)throw Error('El documento fue eliminado. No se sobrescribió ningún dato.');
    if(latest&&(latest.editorContent?.revision!==baseRevision))throw Error('El documento cambió en otra ventana. Conserva tu texto y vuelve a abrirlo antes de guardar.');
@@ -124,6 +138,7 @@ window.addEventListener('beforeunload',e=>{if(dirty&&modal.open){e.preventDefaul
 modal.addEventListener('mousedown',e=>{if(e.target.closest('.nd-toolbar button'))e.preventDefault();});
 modal.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.nd==='original'&&libraryContext){const url=URL.createObjectURL(libraryContext.original),a=document.createElement('a');a.href=url;a.download=libraryContext.original.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
  if(b.dataset.nd==='close')close();
  if(b.dataset.nd==='save')save();
  if(b.dataset.nd==='edit'){editing=true;render();modal.querySelector('#nd-state').textContent='En edición · sin cambios';modal.querySelector('#nd-paper').focus();}
