@@ -1,7 +1,7 @@
 import {importedCommentRange} from './native-word-comments.js';
 import {platformStorage as localStorage} from './platform-cloud.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function safeLink(value){if(/^#[A-Za-z][A-Za-z0-9_]{0,39}$/.test(String(value)))return String(value);try{const url=new URL(String(value).trim());return ['https:','http:','mailto:'].includes(url.protocol)?url.href:null;}catch{return null;}}
+export function safeLink(value){if(/^#[A-Za-z_][A-Za-z0-9_]{0,39}$/.test(String(value)))return String(value);try{const url=new URL(String(value).trim());return ['https:','http:','mailto:'].includes(url.protocol)?url.href:null;}catch{return null;}}
 // Map visible text to DOM offsets, preserving inline formatting and separating paragraphs/cells.
 export function textMap(root){let text='';const nodes=[];const blocks=new Set(['P','DIV','H1','H2','H3','LI','TD','TH','BLOCKQUOTE','TR']);
  function walk(n){if(n.nodeType===3){nodes.push({node:n,start:text.length,end:text.length+n.length});text+=n.data;return;}if(n.nodeType!==1)return;if(n.matches('img,[data-page-break],br')){text+='\n';return;}const boundary=n!==root&&blocks.has(n.tagName);if(boundary&&text&&!text.endsWith('\n'))text+='\n';for(const child of n.childNodes)walk(child);if(boundary&&!text.endsWith('\n'))text+='\n';}walk(root);return {text,nodes};}

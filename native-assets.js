@@ -1,14 +1,14 @@
 const urls=new Map();const pending=new Set();
 async function files(){return (await import('./document-control.js')).blobOperation;}
 export async function addImage(file,{preserveOriginal=false}={}){
- if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('Selecciona una imagen PNG, JPG o WebP.');
+ if(!file||!['image/png','image/jpeg','image/webp',...(preserveOriginal?['image/gif','image/bmp']:[])].includes(file.type))throw Error('Selecciona una imagen PNG, JPG o WebP.');
  if(preserveOriginal&&['image/png','image/jpeg'].includes(file.type)){if(file.size>50*1024*1024)throw Error('La imagen supera 50 MB.');const id=crypto.randomUUID();await (await files())('put',id,file);pending.add(id);return {id,alt:file.name.slice(0,180)};}
- if(file.size>5*1024*1024)throw Error('La imagen debe pesar como máximo 5 MB.');
+ if(file.size>(preserveOriginal?50:5)*1024*1024)throw Error('La imagen debe pesar como máximo '+(preserveOriginal?50:5)+' MB.');
  const bitmap=await createImageBitmap(file);
  try{
   if(bitmap.width*bitmap.height>25000000)throw Error('La imagen supera los 25 megapíxeles. Reduce su tamaño.');
-  const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,file.type==='image/png'?'image/png':'image/jpeg',.85));if(!blob)throw Error('No se pudo procesar la imagen.');
+  const scale=preserveOriginal?1:Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,preserveOriginal||file.type==='image/png'?'image/png':'image/jpeg',.85));if(!blob)throw Error('No se pudo procesar la imagen.');
   const id=crypto.randomUUID();await (await files())('put',id,blob);pending.add(id);return {id,alt:file.name.slice(0,180)};
  }finally{bitmap.close();}
 }

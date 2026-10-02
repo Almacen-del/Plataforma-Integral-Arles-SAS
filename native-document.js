@@ -40,7 +40,7 @@ export function cleanDocumentHTML(html){
   const result=allowed.has(node.tagName)&&!(node.tagName==='A'&&!safeLink(node.getAttribute('href')))?document.createElement(node.tagName==='FONT'?'span':node.tagName.toLowerCase()):document.createDocumentFragment();
   if(result.nodeType===1&&['left','center','right','justify'].includes(node.style.textAlign))result.style.textAlign=node.style.textAlign;
   if(result.nodeType===1){copySafeStyles(node,result);if(node.dataset.wordPage==='true')result.dataset.wordPage='true';if(node.dataset.wordPages==='true')result.dataset.wordPages='true';}
-  if(node.tagName==='A'&&safeLink(node.getAttribute('href'))){result.href=safeLink(node.getAttribute('href'));result.target='_blank';result.rel='noopener noreferrer';}
+  if(node.tagName==='A'&&safeLink(node.getAttribute('href'))){const href=safeLink(node.getAttribute('href'));result.setAttribute('href',href);if(!href.startsWith('#')){result.target='_blank';result.rel='noopener noreferrer';}}
   for(const child of node.childNodes)result.append(copy(child));if(result.nodeType===1&&result.dataset.wordSection)styleSection(result);if(result.nodeType===1&&result.dataset.wordRevision)decorateRevision(result);return result;
  }
  const out=document.createElement('div');for(const n of source.content.childNodes)out.append(copy(n));refreshReferences(out);return out.innerHTML;
