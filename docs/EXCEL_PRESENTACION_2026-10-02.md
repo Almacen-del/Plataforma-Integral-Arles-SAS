@@ -17,3 +17,5 @@ Las pruebas reproducibles están en tests/sheet-xlsx.test.mjs y tests/sheet-xlsx
 Las pruebas privadas del documento real y sus capturas se mantienen en tmp/ma-f-009-fidelity, excluido de la publicación junto con output, tests y documentos internos. El archivo no se incorpora al sitio.
 
 Validación local final: 139 pruebas de modelo y los 20 recorridos de navegador de test:sheets aprobados; build y git diff --check aprobados. La comparación independiente del XML original confirmó 72.236 valores y 5.904 fórmulas sin diferencias, 5.904 resultados calculados coincidentes, descarga idéntica y recuperación del borrador sin errores JavaScript ni subidas del archivo.
+
+Publicación pendiente: el intento de Vercel del 2 de octubre devolvió scope-not-accessible y whoami confirmó Logged out. No se desplegaron estos cambios. La versión local y sus pruebas están completas en el commit 739686a; se requiere restablecer la sesión de Vercel antes de publicar y verificar producción.
