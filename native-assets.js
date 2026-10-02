@@ -1,7 +1,8 @@
 const urls=new Map();const pending=new Set();
 async function files(){return (await import('./document-control.js')).blobOperation;}
-export async function addImage(file){
+export async function addImage(file,{preserveOriginal=false}={}){
  if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('Selecciona una imagen PNG, JPG o WebP.');
+ if(preserveOriginal&&['image/png','image/jpeg'].includes(file.type)){if(file.size>50*1024*1024)throw Error('La imagen supera 50 MB.');const id=crypto.randomUUID();await (await files())('put',id,file);pending.add(id);return {id,alt:file.name.slice(0,180)};}
  if(file.size>5*1024*1024)throw Error('La imagen debe pesar como máximo 5 MB.');
  const bitmap=await createImageBitmap(file);
  try{
