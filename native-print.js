@@ -1,0 +1,51 @@
+function splitLongText(d,node,height,limit){
+ if(node.nodeType!==1||node.querySelector('img,table,ul,ol')||!node.textContent.trim())return [node];
+ const text=node.textContent,count=Math.ceil(height/limit),walker=d.createTreeWalker(node,4),leaves=[];while(walker.nextNode())leaves.push(walker.currentNode);
+ const boundary=offset=>{for(const leaf of leaves){if(offset<=leaf.length)return [leaf,offset];offset-=leaf.length;}return [leaves.at(-1),leaves.at(-1).length];};
+ const out=[];let start=0;for(let i=1;i<=count;i++){let end=i===count?text.length:Math.round(text.length*i/count);if(i<count){const space=text.lastIndexOf(' ',end);if(space>start)end=space+1;else if(/[\uDC00-\uDFFF]/.test(text[end]||''))end++;}if(end<=start)continue;const range=d.createRange();range.setStart(...boundary(start));range.setEnd(...boundary(end));const part=node.cloneNode(false);part.append(range.cloneContents());if(start)part.style.marginTop='0';if(end<text.length)part.style.marginBottom='0';out.push(part);start=end;}
+ if(out.map(n=>n.textContent).join('')!==text)throw Error('No se pudo dividir el párrafo sin alterar el texto.');return out;
+}
+// Paged.js runs locally inside an isolated preview; document data never leaves the browser.
+export async function renderPrintFrame(frame,html){
+ const loaded=new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=()=>reject(Error('No se pudo abrir la vista de impresión.'));});frame.srcdoc=html;await loaded;
+ if(!frame.isConnected)throw Error('Vista cerrada.');const d=frame.contentDocument,w=frame.contentWindow;
+ d.querySelectorAll('script').forEach(n=>n.remove());
+ await Promise.all([...d.images].map(img=>img.decode().catch(()=>{})));await d.fonts.ready;
+ const script=d.createElement('script');script.src='/public/vendor/paged-0.4.3.js';await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(Error('No se pudo cargar el motor de impresión.'));d.head.append(script);});
+ const sourceStyle=w.getComputedStyle(d.body),columns=Number(sourceStyle.columnCount),gap=sourceStyle.columnGap,rule=sourceStyle.columnRule;
+ d.body.style.setProperty('column-count','auto','important');
+ const width=Number(d.body.dataset.printWidth)*96/25.4;
+ if(width)d.body.style.width=(columns>1?(width-(columns-1)*parseFloat(gap))/columns:width)+'px';
+ const usable=Number(d.body.dataset.printHeight)*96/25.4;
+ // Browser table fragmentation may retain text in invisible overflow columns.
+ // Divide oversized rows at block boundaries before paginating; never edit the source.
+ for(const row of [...d.querySelectorAll('tr')])if(usable&&row.getBoundingClientRect().height>usable){
+  const cells=[...row.cells];if(cells.some(c=>c.rowSpan>1))throw Error('Una fila combinada supera una página. Reduce su altura para imprimir sin recortes.');
+  for(const cell of cells)for(const child of [...cell.children]){const h=child.getBoundingClientRect().height;if(h>usable*.7){const parts=splitLongText(d,child,h,usable*.6);if(parts.length>1)child.replaceWith(...parts);}}
+  const groups=cells.map(cell=>{const chunks=[[]];let height=0;for(const child of cell.childNodes){const h=child.nodeType===1?child.getBoundingClientRect().height+(parseFloat(w.getComputedStyle(child).marginTop)||0)+(parseFloat(w.getComputedStyle(child).marginBottom)||0):0;if(h>usable*.85)throw Error('Un bloque dentro de una celda supera una página. Divide ese párrafo para imprimir sin recortes.');if(height+h>usable*.75&&chunks.at(-1).length){chunks.push([]);height=0;}chunks.at(-1).push(child);height+=h;}return chunks;});
+  const count=Math.max(...groups.map(g=>g.length));if(count===1){row.style.height='auto';continue;}const fragments=d.createDocumentFragment();for(let i=0;i<count;i++){const part=row.cloneNode(false);part.style.height='auto';part.style.breakInside='avoid';cells.forEach((cell,j)=>{const copy=cell.cloneNode(false);copy.rowSpan=1;for(const n of groups[j][i]||[])copy.append(n.cloneNode(true));if(i)copy.style.borderTop='0';if(i<count-1)copy.style.borderBottom='0';part.append(copy);});fragments.append(part);}row.replaceWith(fragments);
+ }
+ for(const table of d.querySelectorAll('table')){const previous=table.previousElementSibling;if(previous&&previous.textContent.trim().length<120&&(previous.matches('h1,h2,h3,h4,h5,h6')||previous.querySelector('strong,b')))previous.style.breakAfter='avoid';}
+ if(columns>1)for(const p of [...d.body.querySelectorAll('p')]){if(p.closest('table,.source-print-header,.source-print-footer'))continue;const height=p.getBoundingClientRect().height;if(height>usable*.6){const parts=splitLongText(d,p,height,usable*.5);if(parts.length>1)p.replaceWith(...parts);}}
+ const expected=[];for(const p of d.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li')){if(p.closest('.source-print-header,.source-print-footer')||p.querySelector('p,li'))continue;const id=String(expected.length);p.dataset.printText=id;expected.push(p.textContent.replace(/\s+/g,''));}
+ if(columns>1){const block=d.createElement('div');block.style.columnCount=String(columns);block.style.columnGap=gap;block.style.columnRule=rule;block.append(...d.body.childNodes);d.body.append(block);}
+ const base=d.createElement('style');base.textContent='body{column-count:auto!important;column-width:auto!important}';d.head.append(base);
+ if(width)d.body.style.width=width+'px';
+ const preview=new w.PagedModule.Previewer();const result=await preview.preview();d.body.style.width='';if(!frame.isConnected)throw Error('Vista cerrada.');
+ // Field values must follow the composed page, not the cached value in the DOCX.
+ const pages=[...d.querySelectorAll('.pagedjs_page')];pages.forEach((page,i)=>page.querySelectorAll('[data-word-page]').forEach(n=>n.textContent=String(i+1)));
+ const clipped=[];for(const page of pages){const area=page.querySelector('.pagedjs_area').getBoundingClientRect(),walker=d.createTreeWalker(page.querySelector('.pagedjs_page_content'),w.NodeFilter.SHOW_TEXT);while(walker.nextNode()){const n=walker.currentNode;if(!n.textContent.trim()||n.parentElement.closest('.source-print-header,.source-print-footer'))continue;const range=d.createRange();range.selectNodeContents(n);if([...range.getClientRects()].some(r=>r.width&&r.height&&(r.left<area.left-3||r.right>area.right+3||r.top<area.top-3||r.bottom>area.bottom+3)))clipped.push(n.textContent.slice(0,60));}}
+ if(clipped.length)throw Error('Hay '+clipped.length+' fragmentos fuera del área imprimible. Ajusta las tablas o márgenes; no se imprimirá contenido recortado.');
+ const missing=[];expected.forEach((text,i)=>{const fragments=[...d.querySelectorAll('.pagedjs_page_content [data-print-text="'+i+'"]')].map(n=>n.textContent.replace(/\s+/g,''));const actual=fragments.join('');if(text&&actual!==text&&!(fragments.length&&fragments.every(x=>x===text)))missing.push(i);});
+ if(missing.length)throw Error('La composición no conservó '+missing.length+' bloques de texto. No se habilitó la impresión; el documento sigue intacto.');
+ const style=d.createElement('style');style.dataset.pagedjsIgnore='true';style.textContent='body{column-count:auto!important;column-width:auto!important} @media screen{body{background:#e9efeb}.pagedjs_pages{display:flex;flex-direction:column;align-items:center;gap:22px;padding:20px}.pagedjs_page{background:white;box-shadow:0 2px 10px #1233;flex:none}}@media print{body{background:white}.pagedjs_pages{display:block;padding:0;zoom:1!important}.pagedjs_page{margin:0!important;box-shadow:none!important;break-after:page}}';d.head.append(style);
+ return {pages:result.total,document:d};
+}
+export async function openPrintPreview(html){
+ const dialog=document.createElement('dialog');dialog.className='nd-print-dialog';dialog.style.cssText='width:96vw;max-width:1500px;height:94vh;max-height:94vh;padding:0;border:1px solid #aac4b6;border-radius:12px;background:#f1f5f1';
+ dialog.innerHTML='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px;background:#154d3e;color:white"><strong>Vista previa de impresión</strong><span role="status" style="flex:1">Preparando páginas…</span><label>Página <select data-print-page disabled></select></label><label>Zoom <select data-print-zoom disabled><option value="fit">Ajustar</option><option value="0.75">75 %</option><option value="1">100 %</option><option value="1.25">125 %</option></select></label><button data-print-now disabled>Imprimir / Guardar PDF</button><button data-print-close aria-label="Cerrar vista de impresión">Cerrar</button></div><iframe title="Páginas para imprimir" style="width:100%;height:calc(100% - 65px);border:0" sandbox="allow-scripts allow-same-origin allow-modals"></iframe>';
+ dialog.querySelectorAll('button').forEach(b=>b.style.cssText='color:#154d3e;background:white;border:1px solid #a6c6b6;border-radius:5px;padding:8px 12px;cursor:pointer');
+ dialog.querySelectorAll('select').forEach(n=>n.style.cssText='color:#154d3e;background:white;padding:6px;border-radius:4px');document.body.append(dialog);dialog.showModal();dialog.style.display='flex';dialog.style.flexDirection='column';const frame=dialog.querySelector('iframe'),button=dialog.querySelector('[data-print-now]'),status=dialog.querySelector('[role=status]');frame.style.flex='1';frame.style.minHeight='0';const close=()=>{frame.srcdoc='';dialog.remove();};dialog.querySelector('[data-print-close]').onclick=close;dialog.addEventListener('cancel',e=>{e.preventDefault();close();});button.onclick=()=>{frame.contentWindow.focus();frame.contentWindow.print();};
+ try{const result=await renderPrintFrame(frame,html);if(dialog.isConnected){status.textContent=result.pages+' páginas · Revisa el diseño antes de imprimir';button.disabled=false;const pages=[...result.document.querySelectorAll('.pagedjs_page')],pick=dialog.querySelector('[data-print-page]'),zoom=dialog.querySelector('[data-print-zoom]');pick.innerHTML=pages.map((_,i)=>'<option value="'+i+'">'+(i+1)+'</option>').join('');pick.disabled=zoom.disabled=false;pick.onchange=()=>pages[Number(pick.value)]?.scrollIntoView({block:'start'});zoom.onchange=()=>{const ratio=zoom.value==='fit'?Math.min(1,(frame.clientWidth-40)/(pages[0]?.offsetWidth||800)):Number(zoom.value);result.document.querySelector('.pagedjs_pages').style.zoom=String(ratio);};zoom.onchange();}}catch(e){if(dialog.isConnected)status.textContent=e.message;}
+ return dialog;
+}

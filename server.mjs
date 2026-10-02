@@ -25,6 +25,7 @@ for(const f of ['sheet-developer.js','sheet-developer-model.js'])allowed.add('/'
 for(const f of ['pdf-ocr.js','pdf-model.js','pdf-workspace.js','pdf-workspace.css'])allowed.add('/'+f);
 for(const entry of await readdir(path.join(root,'public/vendor/pdf'),{recursive:true,withFileTypes:true}))if(entry.isFile())allowed.add('/'+path.relative(root,path.join(entry.parentPath,entry.name)).replaceAll('\\','/'));
 for(const entry of await readdir(path.join(root,'public/vendor/ocr'),{recursive:true,withFileTypes:true}))if(entry.isFile())allowed.add('/'+path.relative(root,path.join(entry.parentPath,entry.name)).replaceAll('\\','/'));
+allowed.add('/public/vendor/paged-0.4.3.js');
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.wasm':'application/wasm', '.png': 'image/png', '.jpeg':'image/jpeg', '.jpg':'image/jpeg', '.json':'application/json; charset=utf-8', '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 http.createServer(async (req, res) => {
   const route = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;
@@ -37,6 +38,6 @@ http.createServer(async (req, res) => {
 for(const f of ['sheet-data.js','sheet-data-model.js','sheet-data-rules.js'])allowed.add('/'+f);
 
 for(const f of ['platform-cloud.js','platform-boot.js','public/vendor/supabase-2.117.2.js','public/vendor/supabase-LICENSE.txt'])allowed.add('/'+f);
-for(const f of ['library-upload.js','library-upload-model.js','document-source-history.js','assistant-documents.js','assistant-markdown.js','native-docx-import.js','native-docx-format.js','native-docx-preserve.js'])allowed.add('/'+f);
+for(const f of ['library-upload.js','library-upload-model.js','document-source-history.js','assistant-documents.js','assistant-markdown.js','native-docx-import.js','native-docx-format.js','native-docx-preserve.js','native-print.js'])allowed.add('/'+f);
 
 for(const f of ['mammoth-1.13.0.js','mammoth-LICENSE.txt'])allowed.add('/public/vendor/'+f);

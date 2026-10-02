@@ -158,9 +158,7 @@ modal.addEventListener('click',async e=>{
   try{
   b.disabled=true;
   const html=await buildNativePrintHTML({...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},modal.querySelector('#nd-paper').innerHTML,layout,identity);
-  const frame=document.createElement('iframe');frame.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(frame);
-  frame.onload=async()=>{await Promise.all([...frame.contentDocument.images].map(img=>img.decode().catch(()=>{})));frame.contentWindow.focus();frame.contentWindow.print();setTimeout(()=>frame.remove(),60000);};
-  frame.srcdoc=html;
+  const {openPrintPreview}=await import('./native-print.js');await openPrintPreview(html);
   }catch(error){modal.querySelector('#nd-error').textContent=error.message;}finally{b.disabled=false;}
  }
 });
@@ -168,8 +166,8 @@ export async function buildNativePrintHTML(documentInfo,html,page,header){
  const config=identitySettings(header),logo=config.enabled&&config.showLogo?await identityLogo():'',geom=pageGeometry(page,config),source=documentInfo.editorContent;
  const original=source?.sourceFormatVersion>=2;
  const regions=original?`<div class="source-print-header">${await imagePrintHTML(cleanDocumentHTML(source.sourceHeader||''))}</div><div class="source-print-footer">${await imagePrintHTML(cleanDocumentHTML(source.sourceFooter||''))}</div>`:'';
- const css=original?'.source-print-header{position:running(sourceHeader);width:100%}.source-print-footer{position:running(sourceFooter);width:100%;font-size:9pt}@page{@top-center{content:element(sourceHeader)}@bottom-center{content:element(sourceFooter)}}':await identityPageStyles(documentInfo,header,logo,geom.contentWidth);
- return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(documentInfo.name)+'</title><style>'+printStyles(page)+css+`body{margin:0;overflow-wrap:anywhere}img[data-image-id]{max-height:${geom.contentHeight}mm;object-fit:contain}`+'</style></head><body>'+regions+await imagePrintHTML(cleanDocumentHTML(html))+'</body></html>';
+ const css=original?'.source-print-header{position:running(sourceHeader);width:100%;text-align:left}.source-print-footer{position:running(sourceFooter);width:100%;font-size:9pt}@page{@top-center{content:element(sourceHeader)}@bottom-center{content:element(sourceFooter)}}':await identityPageStyles(documentInfo,header,logo,geom.contentWidth);
+ return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(documentInfo.name)+'</title><style>'+printStyles(page)+css+`body{margin:0;overflow-wrap:anywhere}img[data-image-id]{max-height:${geom.contentHeight}mm;object-fit:contain}`+'</style></head><body data-print-height="'+geom.contentHeight+'" data-print-width="'+geom.contentWidth+'">'+regions+await imagePrintHTML(cleanDocumentHTML(html))+'</body></html>';
 }
 
 modal.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();}});
