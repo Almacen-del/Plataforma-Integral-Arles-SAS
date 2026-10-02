@@ -1,6 +1,6 @@
 # Asistente Arles: integración gratuita preparada
 
-Estado: código preparado para GroqCloud; el usuario indicó que todavía no tiene cuenta. No se creó una cuenta ni se activó facturación. No hay clave del proveedor configurada ni inferencia real comprobada.
+Estado actualizado: el usuario creó la cuenta y autorizó crear la clave «Plataforma Integral Arles», sin vencimiento, y guardarla en Vercel. GROQ_API_KEY y AI_ENABLED quedaron en Production como Secret. No se activó facturación. La configuración está publicada; la prueba de inferencia autenticada está pendiente del inicio de sesión del usuario.
 
 ## Activar
 
@@ -35,3 +35,7 @@ Ocho pruebas de API con proveedores simulados: autenticación, membresía, confi
 Publicación: `dpl_7VgmHZonUKxjyj8rpkGvyNXBTs5p`, READY, código `61af93c`, alias https://plataforma-integral-arles-demo.vercel.app . Verificación pública: GET de API 200 con `ready:false`, POST anónimo rechazado 401, interfaz muestra activación pendiente y exige sesión, sin errores JavaScript. Suite general: 50 pruebas aprobadas. Captura privada local `tmp/ai-prepared-public.png`.
 
 Fuentes oficiales verificadas: [modelos](https://console.groq.com/docs/models), [límites](https://console.groq.com/docs/rate-limits), [compatibilidad API](https://console.groq.com/docs/openai), [tratamiento de datos](https://console.groq.com/docs/your-data), [funciones Node de Vercel](https://vercel.com/docs/functions/runtimes/node-js).
+
+## Activación autorizada
+
+Despliegue `dpl_Cy8tEQ1aRRyPJaG1GHyamGFxsSQh`, READY. API pública de estado comprobada: HTTP 200, `ready: true`, proveedor Groq, modelo `openai/gpt-oss-20b`. Este estado confirma configuración, no una respuesta del modelo. La clave completa se transfirió entre las interfaces de Groq y Vercel sin imprimirla ni escribirla en archivos del proyecto. El formulario de acceso a Plataforma Integral quedó preparado para la prueba final.
