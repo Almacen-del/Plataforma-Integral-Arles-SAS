@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {catalogValues,directory,localDay,validDate} from './platform-model.js';
 import {auditSave,auditRecords,seedAuditDemo} from './audit.js';
 import {emptySchedule,dateRange,applyRange,applyCycle,seedCycleDemo,fillMonth,adjustments,linkCompensation} from './turnos-model.js';

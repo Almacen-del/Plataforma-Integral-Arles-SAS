@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {openSymbols} from './native-symbols.js';
 import {attachSignature} from './native-signature.js';
 import {attachArt} from './native-art.js';

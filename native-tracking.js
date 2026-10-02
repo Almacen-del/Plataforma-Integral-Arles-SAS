@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {escapeMerge as esc} from './native-merge-model.js';
 export function copyTracking(from,to){if(from.dataset.reviewId)to.dataset.reviewId=from.dataset.reviewId;if(from.dataset.reviewStore){to.dataset.reviewStore=from.dataset.reviewStore;to.hidden=true;to.contentEditable='false';}}
 export function attachTracking(modal,{commit}){

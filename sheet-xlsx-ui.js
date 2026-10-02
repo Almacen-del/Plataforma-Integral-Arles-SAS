@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {upgradeXlsxPresentation,readXlsx,loadXlsxReader,saveXlsxDraft,readXlsxDraft,xlsxOriginal} from './sheet-xlsx.js';
 import {workbookBounds} from './sheet-grid-limits.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

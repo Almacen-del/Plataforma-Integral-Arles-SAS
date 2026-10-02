@@ -62,3 +62,5 @@ for(const f of ['native-view.js','native-tracking.js','native-merge.js','native-
 for(const f of ['sheet-model.js','sheet-workspace.js','sheet-workspace.css','sheet-insert.js','sheet-insert-model.js','sheet-insert-charts.js','sheet-layout-model.js','sheet-layout.js','sheet-function-arguments.js','sheet-function-catalog.js','sheet-formula-engine.js','sheet-calculation.js','sheet-formulas.js'])await copyFile(f,'dist/'+f);
 
 for(const f of ['sheet-data.js','sheet-data-model.js','sheet-data-rules.js'])await copyFile(f,'dist/'+f);
+
+for(const f of ['platform-cloud.js','platform-boot.js','public/vendor/supabase-2.117.2.js','public/vendor/supabase-LICENSE.txt'])await copyFile(f,'dist/'+f);

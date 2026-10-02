@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {openNativeDocument} from './native-document.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dialog=document.createElement('dialog');dialog.className='dw-window';document.body.append(dialog);

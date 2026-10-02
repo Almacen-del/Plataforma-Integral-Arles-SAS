@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {escapeMerge as esc} from './native-merge-model.js';
 import {headingLevel} from './native-references.js';
 import {pageGeometry} from './native-page-layout.js';

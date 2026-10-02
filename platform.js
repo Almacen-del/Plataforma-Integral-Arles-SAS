@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {enhanceHome} from './experience.js';
 import {seedPermissionScenario} from './permissions.js';
 import {linkCoordinationScenario} from './coordination.js';

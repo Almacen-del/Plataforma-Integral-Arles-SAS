@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function safeLink(value){if(/^#[A-Za-z][A-Za-z0-9_]{0,39}$/.test(String(value)))return String(value);try{const url=new URL(String(value).trim());return ['https:','http:','mailto:'].includes(url.protocol)?url.href:null;}catch{return null;}}
 // Map visible text to DOM offsets, preserving inline formatting and separating paragraphs/cells.

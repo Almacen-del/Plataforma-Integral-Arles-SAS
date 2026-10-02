@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const path=d=>`<path d="${d}"/>`,poly=points=>`<polygon points="${points}"/>`;
 const rect=(rx=0)=>`<rect x="15" y="22" width="70" height="56" rx="${rx}"/>`;

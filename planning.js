@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {coordinationTasks,createCoordinationExamples,openCoordinationTask} from './coordination.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key='arles-planning-shell-v1';let data={events:[],trash:[]};try{const s=JSON.parse(localStorage.getItem(key));if(s&&Array.isArray(s.events)&&Array.isArray(s.trash))data=s;}catch{}

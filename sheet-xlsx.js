@@ -1,3 +1,4 @@
+import {cloudActive,cloudObject} from './platform-cloud.js';
 import {MAX_ROWS,MAX_COLS,columnName,columnIndex} from './sheet-grid-limits.js';
 
 const loads=new Map();
@@ -99,9 +100,9 @@ export function xlsxFormula(raw,book){
 }
 
 const database=()=>new Promise((resolve,reject)=>{const r=indexedDB.open('arles-sheet-xlsx',1);r.onupgradeneeded=()=>{r.result.createObjectStore('drafts');r.result.createObjectStore('originals');};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-export async function saveXlsxDraft(book,original){const db=await database();try{await new Promise((resolve,reject)=>{const tx=db.transaction(['drafts','originals'],'readwrite');tx.objectStore('drafts').put(book,'active');tx.objectStore('drafts').put(book,book.id);if(original)tx.objectStore('originals').put(original,book.id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}}
-export async function readXlsxDraft(){const db=await database();try{return await new Promise((resolve,reject)=>{const r=db.transaction('drafts').objectStore('drafts').get('active');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
-export async function xlsxOriginal(id){const db=await database();try{return await new Promise((resolve,reject)=>{const r=db.transaction('originals').objectStore('originals').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
+export async function saveXlsxDraft(book,original){if(cloudActive()){if(original)await cloudObject('xlsx-original','put',book.id,original);await cloudObject('xlsx-draft','put','active',book);return;}const db=await database();try{await new Promise((resolve,reject)=>{const tx=db.transaction(['drafts','originals'],'readwrite');tx.objectStore('drafts').put(book,'active');tx.objectStore('drafts').put(book,book.id);if(original)tx.objectStore('originals').put(original,book.id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}}
+export async function readXlsxDraft(){if(cloudActive())return cloudObject('xlsx-draft','get','active');const db=await database();try{return await new Promise((resolve,reject)=>{const r=db.transaction('drafts').objectStore('drafts').get('active');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
+export async function xlsxOriginal(id){if(cloudActive())return cloudObject('xlsx-original','get',id);const db=await database();try{return await new Promise((resolve,reject)=>{const r=db.transaction('originals').objectStore('originals').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
 
 // Upgrade presentation from the retained original while respecting edited cells and widths.
 export async function upgradeXlsxPresentation(book){

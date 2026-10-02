@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 export const CONFIG_KEY='arles-catalogs-v1',FINDINGS_KEY='arles-findings-v1',SCHEDULE_KEY='arles-turnos-v1',LIBRARY_KEY='arles-documental-prototipo-v1';
 export const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 export function validDate(s){return /^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;}

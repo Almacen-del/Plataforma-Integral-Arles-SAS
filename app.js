@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {openSheetWorkspace} from './sheet-workspace.js';
 import {auditSave} from './audit.js';
 import {openNativeDocument,createNativeDocument} from './native-document.js';

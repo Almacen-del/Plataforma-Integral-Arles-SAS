@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {directory,catalogValues} from './platform-model.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const modules=['Biblioteca','Gestión documental','Personal y turnos','Almacén','Mantenimiento taller','Vivero','Censo campo','Mejoras','Trazabilidad'];

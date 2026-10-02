@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 import {normalizePage,paperSizes,normalizeBody} from './native-page-layout.js';
 const base={size:'Letter',orientation:'portrait',columns:1,columnPreset:'equal',columnRule:false,hyphens:'none',lineNumbers:'none',mirror:false};
 const style=(font='Arial',size=12,line=1.5,align='justify',first=0,after=0)=>({font,size,line,align,first,after});

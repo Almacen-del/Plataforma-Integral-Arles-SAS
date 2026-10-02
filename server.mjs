@@ -33,3 +33,5 @@ http.createServer(async (req, res) => {
 }).listen(4173, '127.0.0.1', () => console.log('Arles: http://127.0.0.1:4173'));
 
 for(const f of ['sheet-data.js','sheet-data-model.js','sheet-data-rules.js'])allowed.add('/'+f);
+
+for(const f of ['platform-cloud.js','platform-boot.js','public/vendor/supabase-2.117.2.js','public/vendor/supabase-LICENSE.txt'])allowed.add('/'+f);

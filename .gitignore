@@ -7,3 +7,5 @@ tmp/
 .vercel/
 dist/
 .vercel
+
+supabase/.temp/

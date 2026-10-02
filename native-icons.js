@@ -1,3 +1,4 @@
+import {platformStorage as localStorage} from './platform-cloud.js';
 // Local vector artwork. No font glyphs, external requests or provider accounts.
 const p=d=>`<path d="${d}"/>`,c=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r}"/>`,r=(x,y,w,h,rx=1)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>`;
 const art={
