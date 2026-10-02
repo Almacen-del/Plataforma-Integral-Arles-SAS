@@ -42,6 +42,32 @@ export async function readOriginalHistory(blob,name){
  const {book}=await readXlsx(new File([blob],name));
  return extractDocumentHistory(book,(cell,b)=>{if(!cell)return '';const value=cell.formulaSyntax?cell.xlsxCached:cell.raw;if(value==null)return '';if(cell.xlsxNumFmt&&String(value).trim()!==''&&Number.isFinite(Number(value))){try{return window.SSF.format(cell.xlsxNumFmt,Number(value),{date1904:!!b.xlsxImport?.date1904});}catch{}}return String(value);});
 }
+export function latestDocumentVersion(entries){
+ const parts=entry=>String(entry.number).replace(/^v(?:ersion)?\s*/i,'').split(/[.\-]/).map(Number);
+ return entries.reduce((latest,entry)=>{
+  if(!latest)return entry;
+  const a=parts(entry),b=parts(latest);
+  for(let i=0;i<Math.max(a.length,b.length);i++){if((a[i]||0)!==(b[i]||0))return (a[i]||0)>(b[i]||0)?entry:latest;}
+  return latest;
+ },null);
+}
+async function documentHistory(doc){
+ const versions=doc.versions||[],v=versions.find(v=>v.status==='current')||versions.at(-1);
+ if(!v?.fileId||!/\.(xlsx|docx)$/i.test(v.fileName||''))return null;
+ const {blobOperation}=await import('./document-control.js');
+ const blob=await blobOperation('get',v.fileId);if(!blob)throw Error('No se encuentra el archivo original.');
+ return readOriginalHistory(blob,v.fileName);
+}
+export async function renderSourceVersion(container,doc){
+ container.textContent='Leyendo…';
+ try{
+  const entries=await documentHistory(doc);
+  if(!container.isConnected)return;
+  const latest=latestDocumentVersion(entries||[]);
+  container.textContent=latest?latest.number:entries||doc.imported?'No identificada':String(doc.version||'No registrada');
+  container.title=latest?`Identificada en ${latest.sheet}, ${latest.range}. Fecha documentada: ${latest.date}. No cambia el estado de aprobación.`:'No se encontró una versión en el historial del archivo.';
+ }catch(e){if(container.isConnected){container.textContent='No se pudo identificar';container.title=e.message;}}
+}
 export async function renderSourceHistory(container,doc){
  const versions=doc.versions||[],v=versions.find(v=>v.status==='current')||versions.at(-1);
  if(!v?.fileId||!/\.(xlsx|docx)$/i.test(v.fileName||'')){container.textContent='El historial anterior no se ha extraído de este archivo.';return;}
