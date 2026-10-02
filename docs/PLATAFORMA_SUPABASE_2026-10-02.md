@@ -47,3 +47,7 @@ Solo se incluye clave publicable en el cliente, nunca claves privilegiadas. Sesi
 - Asesor de seguridad: sin hallazgos nuevos; permanecen dos avisos previos: [pg_net en esquema public](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public) y [protección contra contraseñas filtradas deshabilitada](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). No se cambiaron ajustes de Auth compartidos.
 
 Migración aplicada: `supabase/migrations/20261002123327_integral_platform_connection.sql`. Dependencia fijada: `@supabase/supabase-js@2.117.2`, con copia distribuida y licencia en `public/vendor`.
+
+## Publicación verificada
+
+Vercel producción `dpl_5Q58rSpHY5btvf6YRaefsdVLreQE`, estado READY, código `7264f3f`. URL: https://plataforma-integral-arles-demo.vercel.app/ . Prueba sobre URL pública: HTTP 200, carga del SDK real, formulario de acceso y apertura de hojas sin errores JavaScript. No se usaron credenciales reales ni se escribieron datos en esa prueba. Captura local privada: `tmp/platform-cloud-public-login.png`.
