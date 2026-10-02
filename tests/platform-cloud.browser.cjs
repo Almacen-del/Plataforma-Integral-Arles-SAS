@@ -6,10 +6,10 @@ const assert=require('node:assert/strict');
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/public/vendor/supabase-2.117.2.js',route=>route.fulfill({contentType:'text/javascript',body:`
  const rows=new Map(), files=new Map();window.__cloudTest={rows,files};
- window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{}}}),getUser:async()=>({data:{user:{id:'test-admin',email:'admin@example.invalid'}}}),onAuthStateChange:()=>{}},from(table){let key;const q={select:()=>q,eq:(k,v)=>{key=v;return q;},like:async()=>({data:[...rows.values()]}),maybeSingle:async()=>({data:table==='integral_members'?{display_name:'Administrador de prueba',active:true}:rows.get(key)||null}),then(resolve){resolve({count:7});}};return q;},rpc:async(name,{changes})=>{if(changes.some(c=>(rows.get(c.key)?.revision||0)!==c.revision))return {error:{message:'CONFLICT: test'}};return {data:changes.map(c=>{const row={...c,revision:c.revision+1};rows.set(c.key,row);return row;})};},storage:{from:()=>({upload:async(p,b)=>{files.set(p,b);return {};},download:async p=>({data:files.get(p)}),remove:async()=>({})})}})};` }));
+ window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{access_token:"test-token"}}}),getUser:async()=>({data:{user:{id:'test-admin',email:'admin@example.invalid'}}}),onAuthStateChange:()=>{}},from(table){let key;const q={select:()=>q,eq:(k,v)=>{key=v;return q;},like:async()=>({data:[...rows.values()]}),maybeSingle:async()=>({data:table==='integral_members'?{display_name:'Administrador de prueba',active:true}:rows.get(key)||null}),then(resolve){resolve({count:7});}};return q;},rpc:async(name,{changes})=>{if(changes.some(c=>(rows.get(c.key)?.revision||0)!==c.revision))return {error:{message:'CONFLICT: test'}};return {data:changes.map(c=>{const row={...c,revision:c.revision+1};rows.set(c.key,row);return row;})};},storage:{from:()=>({upload:async(p,b)=>{files.set(p,b);return {};},download:async p=>({data:files.get(p)}),remove:async()=>({})})}})};` }));
  await page.goto('http://127.0.0.1:4173');
  await page.locator('#integral-cloud-account').waitFor();
- assert.match(await page.locator('#integral-cloud-account').textContent(),/Administrador de prueba/);
+ await page.waitForFunction(()=>document.querySelector('#integral-cloud-account')?.textContent.includes('Administrador de prueba'));
  await page.locator('#integral-cloud-account').click();
  await page.locator('[data-cloud-field]').click();
  await page.locator('[data-cloud-info]').filter({hasText:'FLORACION: 7'}).waitFor();
@@ -25,6 +25,9 @@ const assert=require('node:assert/strict');
  await page.locator('.ai-launch').click();await page.locator('[data-ai=field-live]').click();
  await page.locator('.ai-answer-label').filter({hasText:'DATOS CONSULTADOS'}).waitFor();
  assert.match(await page.locator('.ai-messages').textContent(),/no totales de árboles/);
+ await page.route('**/api/assistant',route=>{if(route.request().method()==='GET')return route.fulfill({json:{ready:true}});const body=route.request().postDataJSON();assert.equal(body.scope,'field');return route.fulfill({json:{answer:'Respuesta IA verificada <script>throw Error("injected")</script>',refs:[{name:'Censos',url:'https://censos-arles.vercel.app/'}],model:'test-model',at:new Date().toISOString()}});});
+ await page.locator('.ai-scope select').selectOption('field');await page.locator('.ai-compose textarea').fill('Resume los censos');await page.locator('.ai-compose textarea').press('Enter');
+ await page.locator('.ai-answer-label').filter({hasText:'IA · GROQ'}).waitFor();assert.match(await page.locator('.ai-messages').textContent(),/Respuesta IA verificada/);assert.equal(await page.locator('.ai-messages script').count(),0);
  // Exercise actual browser Blob/gzip path independently of the editor state wrapper.
  const roundtrip=await page.evaluate(async()=>{const c=await import('/platform-cloud.js');await c.cloudObject('pdf','put','test',{file:new File(['bytes preserved'],'test.pdf')});return (await c.cloudObject('pdf','get','test')).file.text();});
  assert.equal(roundtrip,'bytes preserved');assert.deepEqual(errors,[]);

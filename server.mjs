@@ -1,3 +1,4 @@
+import assistantHandler from './api/assistant.js';
 import http from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +28,7 @@ for(const entry of await readdir(path.join(root,'public/vendor/ocr'),{recursive:
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.wasm':'application/wasm', '.png': 'image/png', '.jpeg':'image/jpeg', '.jpg':'image/jpeg', '.json':'application/json; charset=utf-8', '.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 http.createServer(async (req, res) => {
   const route = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;
+  if(route==='/api/assistant')return assistantHandler(req,res);
   if (!allowed.has(route)) { res.writeHead(404); return res.end('No encontrado'); }
   try { const body = await readFile(path.join(root, route)); res.writeHead(200, { 'Content-Type': mime[path.extname(route)]||'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(body); }
   catch { res.writeHead(404); res.end('No encontrado'); }
