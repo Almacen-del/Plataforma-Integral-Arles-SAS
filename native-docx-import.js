@@ -1,4 +1,4 @@
-import {readWordBibliography} from './native-word-bibliography.js';
+import {readWordBibliography,readWordCustomParts} from './native-word-bibliography.js';
 import {prepareWordTextBoxes} from './native-word-text-boxes.js';
 import {prepareWordRevisions} from './native-word-revisions.js';
 import {readWordComments,prepareCommentMarkers,commentQuotes} from './native-word-comments.js';
@@ -15,7 +15,7 @@ export async function importWord(file){
  const {checkXlsxArchive,loadXlsxReader}=await import('./sheet-xlsx.js');const bytes=await file.arrayBuffer();try{checkXlsxArchive(bytes);}catch(e){throw Error(e.message.replaceAll('XLSX','DOCX'));}
  await loadXlsxReader();const zip=await window.JSZip.loadAsync(bytes);if(!zip.file('word/document.xml'))throw Error('El archivo no contiene un Word DOCX válido.');
  const {parseWordXML,preserveWordStyles,wordPage}=await import('./native-docx-format.js');
- const sourceBibliography=await readWordBibliography(zip);const main=parseWordXML(await zip.file('word/document.xml').async('string')),styles=parseWordXML(await zip.file('word/styles.xml')?.async('string')||'<styles/>'),numbering=parseWordXML(await zip.file('word/numbering.xml')?.async('string')||'<numbering/>');
+ const sourceCustomParts=await readWordCustomParts(zip),sourceBibliography=await readWordBibliography(zip);const main=parseWordXML(await zip.file('word/document.xml').async('string')),styles=parseWordXML(await zip.file('word/styles.xml')?.async('string')||'<styles/>'),numbering=parseWordXML(await zip.file('word/numbering.xml')?.async('string')||'<numbering/>');
  const comments=await readWordComments(zip,parseWordXML);
  const mammoth=await reader(),warnings=['Se importan el contenido, encabezado, pie y configuración de página. Los objetos flotantes y los saltos automáticos pueden variar respecto a Word. El original se conserva completo.'];
  if([...main.getElementsByTagNameNS('*','cols')].some(n=>['0','false','off'].includes(n.getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','equalWidth'))))warnings.push('El documento usa columnas de anchos distintos; la vista editable las distribuye con anchos iguales. La impresión y la descarga Word conservan sus medidas.');
@@ -56,16 +56,16 @@ export async function importWord(file){
    if(pending.length)groups.push({nodes:pending,properties:props.at(-1)});
    const output=document.createElement('div'),linked={};let firstPage;
    for(const group of groups){const copy=main.cloneNode(true),copyBody=copy.getElementsByTagNameNS(W,'body')[0];copyBody.replaceChildren(...group.nodes.map(n=>n.cloneNode(true)));for(const old of [...copyBody.getElementsByTagNameNS(W,'sectPr')])old.remove();if(group.properties)copyBody.append(group.properties.cloneNode(true));
-    const pg=wordPage(copy),num=direct(group.properties,'pgNumType'),config=sectionSettings({page:pg,type:attr(direct(group.properties,'type')),titlePage:on(direct(group.properties,'titlePg')),evenAndOdd,start:attr(num,'start')==null?null:Number(attr(num,'start')),format:attr(num,'fmt')});firstPage??=pg;
+    const pg={...wordPage(copy),mirror:on(settings.getElementsByTagNameNS(W,'mirrorMargins')[0])},num=direct(group.properties,'pgNumType'),config=sectionSettings({page:pg,type:attr(direct(group.properties,'type')),titlePage:on(direct(group.properties,'titlePg')),evenAndOdd,start:attr(num,'start')==null?null:Number(attr(num,'start')),format:attr(num,'fmt')});firstPage??=pg;
     const part=await window.JSZip.loadAsync(bytes);part.file('word/document.xml',new XMLSerializer().serializeToString(copy));const content=await convert(await part.generateAsync({type:'arraybuffer'}),copy),wrapper=document.createElement('div');wrapper.dataset.wordSection=JSON.stringify(config);
     for(const kind of ['header','footer'])for(const type of ['default','first','even']){const key=kind+'-'+type,ref=[...(group.properties?.getElementsByTagNameNS(W,kind+'Reference')||[])].find(n=>attr(n,'type')===type);if(ref)linked[key]=await region(kind,type,group.properties);const el=document.createElement('div');el.dataset.wordRegion=key;el.innerHTML=linked[key]||'';wrapper.append(el);}
     const contentNode=document.createElement('div');contentNode.dataset.wordBody='true';contentNode.innerHTML=content;wrapper.append(contentNode);output.append(wrapper);
    }
    const notices=warnings.filter(w=>!w.startsWith('Este Word contiene varias secciones:')&&!w.startsWith('Los encabezados y pies especiales'));notices.push('Se conservan las secciones y sus encabezados y pies. Vista de páginas muestra la composición de impresión.');if(groups.some(g=>attr(direct(g.properties,'type'))==='continuous'))notices.push('Los saltos continuos comparten página cuando mantienen la misma configuración, encabezados y numeración. Los cambios de esas propiedades pueden iniciar otra página en PDF.');
-   return {sourceBibliography,comments:commentQuotes(output.innerHTML,comments),html:output.innerHTML,page:firstPage,sourceHeader:'',sourceFooter:'',sourceFormatVersion:7,warnings:[...new Set(notices)],formatHTML:value=>value};
+   return {sourceCustomParts,sourceBibliography,comments:commentQuotes(output.innerHTML,comments),html:output.innerHTML,page:firstPage,sourceHeader:'',sourceFooter:'',sourceFormatVersion:8,warnings:[...new Set(notices)],formatHTML:value=>value};
   }
-  const html=await convert(bytes,main),page=wordPage(main);
-  return {sourceBibliography,comments:commentQuotes(html,comments),html,page,formatHTML:value=>{const root=document.createElement('div');root.innerHTML=value;return preserveWordStyles(root,main,styles,numbering);},sourceHeader:await region('header'),sourceFooter:await region('footer'),sourceFormatVersion:7,warnings:[...new Set(warnings)]};
+  const html=await convert(bytes,main),page={...wordPage(main),mirror:on(settings.getElementsByTagNameNS(W,'mirrorMargins')[0])};
+  return {sourceCustomParts,sourceBibliography,comments:commentQuotes(html,comments),html,page,formatHTML:value=>{const root=document.createElement('div');root.innerHTML=value;return preserveWordStyles(root,main,styles,numbering);},sourceHeader:await region('header'),sourceFooter:await region('footer'),sourceFormatVersion:8,warnings:[...new Set(warnings)]};
  }catch(e){await clearImageSession();throw e;}
 
 }
@@ -76,16 +76,16 @@ export async function openLibraryWord(doc,version,blob){
   const {blobOperation}=await import('./document-control.js');const {openImportedWord,cleanDocumentHTML}=await import('./native-document.js');
   const key='editor-docx:'+version.fileId,draft=await blobOperation('get',key),file=new File([blob],version.fileName,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   if(draft&&(draft.kind!=='library-docx-v1'||draft.fileId!==version.fileId||typeof draft.document?.editorContent?.html!=='string'))throw Error('El borrador Word no se pudo leer. No se sobrescribió.');
-  const imported=draft?.document.editorContent.sourceFormatVersion===7?null:await importWord(file);
-  const content=draft?.document||{...doc,editorContent:{html:cleanDocumentHTML(imported.html),revision:0,page:imported.page,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:7,sourceBibliography:imported.sourceBibliography,comments:imported.comments,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,identity:{enabled:false}},editorHistory:[],importWarnings:imported.warnings};
+  const imported=draft?.document.editorContent.sourceFormatVersion===8?null:await importWord(file);
+  const content=draft?.document||{...doc,editorContent:{html:cleanDocumentHTML(imported.html),revision:0,page:imported.page,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:8,sourceCustomParts:imported.sourceCustomParts,sourceBibliography:imported.sourceBibliography,comments:imported.comments,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,identity:{enabled:false}},editorHistory:[],importWarnings:imported.warnings};
   if(draft&&imported){
    const previous=content.editorContent,baseline=previous.sourceBaseline;
    const untouched=previous.revision===0||baseline&&['html','page','sourceHeader','sourceFooter','identity','comments'].every(k=>JSON.stringify(previous[k])===JSON.stringify(baseline[k]));
    // Existing edits and their layout take precedence over parser upgrades.
-   content.editorContent=untouched?{...previous,html:cleanDocumentHTML(imported.html),comments:imported.comments,sourceBibliography:imported.sourceBibliography,page:imported.page,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:7}:{...previous,sourceFormatVersion:7};
+   content.editorContent=untouched?{...previous,html:cleanDocumentHTML(imported.html),comments:imported.comments,sourceCustomParts:imported.sourceCustomParts,sourceBibliography:imported.sourceBibliography,page:imported.page,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:8}:{...previous,sourceFormatVersion:8};
    content.importWarnings=[...imported.warnings,...(untouched?[]:['Este borrador conserva tus cambios anteriores. Para recuperar objetos que faltaban al abrirlo, importa una copia del Word original y compara ambas versiones.'])];
   }
-  if(imported)content.editorContent.sourceBaseline={comments:imported.comments,html:cleanDocumentHTML(imported.html),sourceBibliography:imported.sourceBibliography,page:imported.page,identity:{enabled:false},sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter)};
+  if(imported)content.editorContent.sourceBaseline={comments:imported.comments,html:cleanDocumentHTML(imported.html),sourceCustomParts:imported.sourceCustomParts,sourceBibliography:imported.sourceBibliography,page:imported.page,identity:{enabled:false},sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter)};
   let expectedRevision=draft?.document.editorContent.revision||0;
   openImportedWord(content,{original:file,onSave:async next=>{
    const {platformStorage}=await import('./platform-cloud.js');const current=JSON.parse(platformStorage.getItem('arles-documental-prototipo-v1')).documents.find(d=>d.id===doc.id);

@@ -1,4 +1,13 @@
 const W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+// Keep pending paragraph-format revisions attached to their actual paragraph.
+// Reject foreign markup and relationship references before serializing raw OOXML.
+export function paragraphRevisionXML(node){
+ const raw=node.dataset?.wordParagraphRevision;if(!raw)return null;
+ const xml=new DOMParser().parseFromString(raw,'application/xml'),root=xml.documentElement;
+ if(xml.querySelector('parsererror')||root.namespaceURI!==W||root.localName!=='pPrChange')return null;
+ if([...root.getElementsByTagName('*')].some(n=>n.namespaceURI!==W||[...n.attributes].some(a=>a.namespaceURI==='http://schemas.openxmlformats.org/officeDocument/2006/relationships')))return null;
+ return new XMLSerializer().serializeToString(root);
+}
 export function revisionData(node){try{const v=JSON.parse(node.dataset.wordRevision);if(!['insert','delete'].includes(v.type)||!/^wr_[a-f0-9]{32}$/.test(v.id))return null;return {id:v.id,type:v.type,author:String(v.author||'Autor no indicado').slice(0,300),date:String(v.date||'').slice(0,80)};}catch{return null;}}
 export function decorateRevision(node){const v=revisionData(node);if(!v)return;node.contentEditable='false';node.style.backgroundColor=v.type==='delete'?'#ffe5e5':'#e3f4e8';node.style.textDecorationLine=v.type==='delete'?'line-through':'underline';node.title=(v.type==='delete'?'Eliminación':'Inserción')+' · '+v.author;}
 export function prepareWordRevisions(xml,warnings){
