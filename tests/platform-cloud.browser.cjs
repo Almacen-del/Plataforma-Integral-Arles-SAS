@@ -30,6 +30,8 @@ const assert=require('node:assert/strict');
  await page.locator('.ai-answer-label').filter({hasText:'IA · GROQ'}).waitFor();assert.match(await page.locator('.ai-messages').textContent(),/Respuesta IA verificada/);assert.equal(await page.locator('.ai-messages script').count(),0);
  // Exercise actual browser Blob/gzip path independently of the editor state wrapper.
  const roundtrip=await page.evaluate(async()=>{const c=await import('/platform-cloud.js');await c.cloudObject('pdf','put','test',{file:new File(['bytes preserved'],'test.pdf')});return (await c.cloudObject('pdf','get','test')).file.text();});
- assert.equal(roundtrip,'bytes preserved');assert.deepEqual(errors,[]);
+ assert.equal(roundtrip,'bytes preserved');
+ await page.locator('[data-ai=close]').click();await page.locator('[data-library-file-input]').setInputFiles({name:'cloud-upload.txt',mimeType:'text/plain',buffer:Buffer.from('private original')});await page.locator('[data-upload-start]').click();const audit=page.locator('dialog[open]').filter({hasText:'Registrar cambio'});await audit.locator('[name=reason]').fill('Probar carga autenticada');await audit.getByRole('button',{name:'Confirmar y registrar'}).click();await page.locator('[data-upload-status]').filter({hasText:'Guardados en Supabase'}).waitFor();
+ const cloudFile=await page.evaluate(async()=>{const row=window.__cloudTest.rows.get('state:arles-documental-prototipo-v1');const d=JSON.parse(row.payload).documents.find(d=>d.name==='cloud-upload.txt');const {cloudObject}=await import('/platform-cloud.js');return (await cloudObject('document','get',d.versions[0].fileId)).text();});assert.equal(cloudFile,'private original');assert.deepEqual(errors,[]);
  console.log('PASS authenticated boot, isolated state, spreadsheet save/reopen, real-query UI labels, private binary roundtrip (mock backend).');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

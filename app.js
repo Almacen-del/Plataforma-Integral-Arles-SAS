@@ -1,4 +1,5 @@
 import {platformStorage as localStorage} from './platform-cloud.js';
+import {installLibraryUpload} from './library-upload.js';
 import {openSheetWorkspace} from './sheet-workspace.js';
 import {auditSave} from './audit.js';
 import {openNativeDocument,createNativeDocument} from './native-document.js';
@@ -142,6 +143,7 @@ document.addEventListener('keydown',e=>{
 setupEditor({state,save,render,select:selectItem,toast,escape});
 save('Inicialización o actualización de la estructura documental');
 render();
+installLibraryUpload({currentFolder:()=>folder});
 
 
 
