@@ -70,10 +70,24 @@ export async function renderPrintFrame(frame,html,context={}){
  return {pages:result.total,document:d,config};
 }
 
+// Continuous sections may share the existing flow when their page rules agree.
+// Different geometry, running regions or numbering need a separate page context.
+function groupContinuousSections(documents){
+ const groups=[];let last;
+ for(const html of documents){const doc=new DOMParser().parseFromString(html,'text/html'),config=sectionSettings(JSON.parse(doc.body.dataset.sectionConfig||'{}'));
+  const signature=JSON.stringify({page:config.page,titlePage:config.titlePage,evenAndOdd:config.evenAndOdd,format:config.format,regions:[...doc.querySelectorAll('template[data-source-region]')].map(n=>[n.dataset.sourceRegion,n.innerHTML])});
+  if(last&&config.type==='continuous'&&config.start===null&&!config.titlePage&&signature===last.signature){for(const n of [...doc.body.childNodes])if(n.nodeType!==1||!n.matches('template[data-source-region],.source-print-header,.source-print-footer'))last.doc.body.append(n);}
+  else{last={doc,signature};groups.push(last);}
+ }
+ return groups.map(g=>'<!doctype html>'+g.doc.documentElement.outerHTML);
+}
 // Compose each section at its own geometry, then retain those dimensions in a single print document.
 async function composeSections(frame,documents){
  const d=frame.contentDocument,owner=frame.ownerDocument,container=d.createElement('div');container.className='pagedjs_pages';let count=0,number=1;const styles=[],stages=[];
- try{for(const [index,html] of documents.entries()){const stage=owner.createElement('iframe');stage.style.cssText='position:fixed;left:-30000px;top:0;width:1400px;height:1100px;border:0';stage.setAttribute('sandbox','allow-scripts allow-same-origin');owner.body.append(stage);stages.push(stage);const result=await renderPrintFrame(stage,html,{pageOffset:count,numberStart:number});const source=result.document;
+ try{for(const [index,html] of groupContinuousSections(documents).entries()){
+  const parsed=new DOMParser().parseFromString(html,'text/html'),config=sectionSettings(JSON.parse(parsed.body.dataset.sectionConfig||'{}')),parity=config.type==='evenPage'?0:config.type==='oddPage'?1:null;
+  if(count&&parity!==null&&(count+1)%2!==parity){const blank=container.lastElementChild.cloneNode(true);blank.dataset.printBlank='true';blank.dataset.printNumber=String(number++);blank.querySelectorAll('.pagedjs_page_content,.pagedjs_margin-content').forEach(n=>n.replaceChildren());container.append(blank);count++;}
+  const stage=owner.createElement('iframe');stage.style.cssText='position:fixed;left:-30000px;top:0;width:1400px;height:1100px;border:0';stage.setAttribute('sandbox','allow-scripts allow-same-origin');owner.body.append(stage);stages.push(stage);const result=await renderPrintFrame(stage,html,{pageOffset:count,numberStart:number});const source=result.document;
   if(!index)for(const style of source.querySelectorAll('style'))styles.push(style.cloneNode(true));
   for(const page of source.querySelectorAll('.pagedjs_page')){const clone=page.cloneNode(true),computed=stage.contentWindow.getComputedStyle(page);for(const key of computed)if(key.startsWith('--'))clone.style.setProperty(key,computed.getPropertyValue(key));const rect=page.getBoundingClientRect();clone.style.width=rect.width+'px';clone.style.height=rect.height+'px';clone.style.font=stage.contentWindow.getComputedStyle(source.body).font;clone.style.page='arlesSection'+index;clone.dataset.printSection=String(index);container.append(clone);count++;number=Number(page.dataset.printNumber)+1;}
   const first=source.querySelector('.pagedjs_page');if(first){const rule=d.createElement('style');rule.textContent='@page arlesSection'+index+'{size:'+first.offsetWidth+'px '+first.offsetHeight+'px;margin:0}';styles.push(rule);}

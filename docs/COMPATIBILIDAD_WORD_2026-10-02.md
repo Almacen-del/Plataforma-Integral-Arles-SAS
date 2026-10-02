@@ -1,4 +1,4 @@
-# Compatibilidad Word: tercera revisión del 2 de octubre de 2026
+# Compatibilidad Word: cuarta revisión del 2 de octubre de 2026
 
 ## Fallos corregidos y comprobados
 
@@ -33,12 +33,26 @@ Cuatro suites nuevas en `npm run test:word`: secciones (importación, exportaci�
 
 Los borradores guardados anteriormente no se reemplazan automáticamente con una nueva importación: se preservan las ediciones. El soporte nuevo de importación se aplica a archivos abiertos por primera vez. Un borrador antiguo que ya perdió elementos en su primera conversión no los recupera por abrirlo de nuevo.
 
+## Revisión posterior: saltos, comentarios y revisiones
+
+- El PDF incluye páginas de relleno vacías para comenzar una sección en hoja par/impar. Se cuentan en NUMPAGES, mantienen la geometría de la sección anterior y no repiten encabezados ni pies.
+- Los saltos continuos comparten el flujo cuando coinciden tamaño, márgenes, columnas, encabezados, pies y formato de numeración, sin reinicio. Cuando esas condiciones no coinciden se mantiene una página nueva; no se promete composición continua con cambios de columnas en mitad de página.
+- Se importan comentarios de texto con autor, fecha e iniciales, y marcadores de rango exactos, incluso entre párrafos. Están disponibles en Buscar y revisar para localizar, responder y resolver; se guardan con el historial del editor.
+- La reconstrucción DOCX incluye comentarios nativos y sus rangos. Las respuestas de Arles y la marca de resuelto se añaden como texto en la anotación exportada: no se reconstruyen como hilos modernos de Office. Los comentarios generales o que perdieron su rango se conservan como anotaciones puntuales del documento. No se inventa una fecha si faltaba.
+- La exportación del original sin cambios conserva todos sus bytes. Cambiar comentarios fuerza la reconstrucción, evitando descargar por error el original sin la respuesta nueva; se incluyen cambios aún no guardados.
+- Inserciones y eliminaciones de texto dentro de párrafos llegan como revisiones pendientes, con autor, fecha y formato de los tramos. «Revisiones importadas» permite aceptar o rechazar las revisiones del cuerpo; la decisión se guarda con auditoría. El PDF muestra el texto actual y el DOCX reconstruido conserva las revisiones pendientes como `w:ins` / `w:del`.
+- Cambios de estructura, formato, objetos, movimientos y revisiones anidadas siguen fuera del soporte editable y mantienen sus avisos. La resolución de revisiones en encabezados y pies aún no tiene controles propios. El seguimiento de cambios que genera Arles conserva su funcionamiento anterior por bloques; no se convierte automáticamente a revisión nativa de Word.
+
+### Pruebas de esta revisión
+
+Tres suites nuevas: `word-section-breaks.browser.cjs`, `word-comments.browser.cjs` y `word-revisions.browser.cjs`. Se verifican saltos par/impar, continuidad compatible, reinicio de números, PDF con páginas mixtas; comentario simple y entre párrafos, descarga idéntica sin editar, respuesta sin guardar en DOCX, guardado y recarga; revisiones con negrita/cursiva, exportación y reimportación, contenido final para PDF, aceptación y rechazo y persistencia. Se mantienen las diez suites anteriores y 64 pruebas unitarias. `native-tracking.browser.cjs` y `native-comments.browser.cjs` comprueban que la revisión y comentarios propios del editor no retroceden. El PDF real del fixture tiene siete páginas, las hojas 2 y 5 vacías, continuidad A/B en la primera y última hoja horizontal; se comprobó con extracción de texto y revisión visual. El manual GA-M-002 mantiene siete páginas y sus 369 párrafos.
+
 ## Pendientes reales
 
-- Composición de saltos continuos dentro de la misma página y páginas de relleno para saltos par/impar: el DOCX conserva el tipo, pero el PDF comienza cada sección en una nueva página sin insertar esos rellenos.
+- Composición de saltos continuos con cambios de columnas, encabezados o numeración dentro de la misma página.
 - Edición vinculada entre encabezados heredados: al reconstruir se exportan las variantes resueltas por sección; cambiar una no actualiza las otras automáticamente.
 - Columnas desiguales en el lienzo editable y numeración avanzada de listas totalmente editable.
-- Objetos flotantes complejos, gráficos Office, SmartArt, estructuras matemáticas no soportadas, comentarios/control de cambios y contenidos vinculados.
+- Objetos flotantes complejos, gráficos Office, SmartArt, estructuras matemáticas no soportadas, comentarios modernos en hilos, revisiones estructurales y contenidos vinculados.
 - Combinaciones verticales de tabla que exceden una página y algunos casos de notas/tabulaciones/estilos condicionales.
 - Fidelidad de fuentes cuando la fuente original no está disponible en el equipo.
 
@@ -49,3 +63,7 @@ No se garantiza equivalencia universal con Microsoft Word. El archivo original s
 - Microsoft Open XML, KeepNext: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.keepnext
 - Microsoft Open XML, StartOverrideNumberingValue: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.startoverridenumberingvalue
 - Paged.js 0.4.3, puntos de extensión previos al cálculo de desbordamiento: https://github.com/pagedjs/pagedjs/blob/v0.4.3/src/chunker/layout.js
+
+- Microsoft, tipos de salto de sección: https://support.microsoft.com/en-us/word/use-section-breaks-to-change-the-layout-or-formatting-in-one-section-of-your-word-document
+- Microsoft Open XML, referencia de comentario: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.commentreference?view=openxml-3.0.1
+- Microsoft Open XML, eliminación registrada: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.deletedrun?view=openxml-3.0.1

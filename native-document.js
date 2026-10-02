@@ -1,3 +1,4 @@
+import {decorateRevision,finalRevisionHTML,attachImportedRevisions} from './native-word-revisions.js';
 import {sectionSettings,sectionData,sectionBody,sectionRegions,styleSection,collectSections,editSectionDialog} from './native-word-sections.js';
 import {cloudActive,flushCloud} from './platform-cloud.js';
 import {platformStorage as localStorage} from './platform-cloud.js';
@@ -40,7 +41,7 @@ export function cleanDocumentHTML(html){
   if(result.nodeType===1&&['left','center','right','justify'].includes(node.style.textAlign))result.style.textAlign=node.style.textAlign;
   if(result.nodeType===1){copySafeStyles(node,result);if(node.dataset.wordPage==='true')result.dataset.wordPage='true';if(node.dataset.wordPages==='true')result.dataset.wordPages='true';}
   if(node.tagName==='A'&&safeLink(node.getAttribute('href'))){result.href=safeLink(node.getAttribute('href'));result.target='_blank';result.rel='noopener noreferrer';}
-  for(const child of node.childNodes)result.append(copy(child));if(result.nodeType===1&&result.dataset.wordSection)styleSection(result);return result;
+  for(const child of node.childNodes)result.append(copy(child));if(result.nodeType===1&&result.dataset.wordSection)styleSection(result);if(result.nodeType===1&&result.dataset.wordRevision)decorateRevision(result);return result;
  }
  const out=document.createElement('div');for(const n of source.content.childNodes)out.append(copy(n));refreshReferences(out);return out.innerHTML;
 }
@@ -90,6 +91,7 @@ function render(){
  modal.querySelector('#nd-paper')?.addEventListener('drop',e=>e.preventDefault());
  if(paper){const history=document.createElement('button');history.className='button secondary';history.dataset.ndHistory='open';history.textContent='Comparar y recuperar';modal.querySelector('.nd-actions').append(history);history.onclick=()=>openNativeHistory(doc,{clean:cleanDocumentHTML,canRestore:!dirty&&!locked&&!isNew,blockedReason:dirty?'Guarda los cambios pendientes antes de recuperar una revisión.':locked?'Este documento está protegido.':'',onRestore:async snapshot=>{const result=await save(snapshot);if(!result)throw Error(modal.querySelector('#nd-error').textContent||'Recuperación cancelada. El documento se conserva sin cambios.');return result;}});}
  if(paper?.querySelector('[data-word-section]')){if(editing){const button=document.createElement('button');button.className='button secondary';button.textContent='Secciones y encabezados';button.onclick=()=>editSectionDialog(paper,{clean:cleanDocumentHTML,changed:markDirty});actions.append(button);}paper.style.padding='0';paper.style.columnCount='1';paper.style.background='transparent';paper.style.width='max-content';paper.style.maxWidth='none';}
+ if(paper)attachImportedRevisions(paper,actions,{editing,changed:markDirty});
  if(paper)disposePages=attachPages(modal,{snapshot:()=>({doc:{...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},html:paper.innerHTML,page:{...layout},identity:{...identity}}),buildPrintHTML:buildNativePrintHTML});
  if(editing&&toolbar){const tabs=toolbar.querySelector('.nd-ribbon-tabs');if(tabs){const state=actions.querySelector('#nd-state');if(state)modal.querySelector('.nd-head>div').append(state);tabs.append(actions);actions.setAttribute('aria-label','Acciones del documento');}}
 }
@@ -151,7 +153,7 @@ modal.addEventListener('click',async e=>{
  }
  if(b.dataset.nd==='docx'){
   if(modal.querySelector('[data-tool=image-upload]')?.disabled){modal.querySelector('#nd-error').textContent='Espera a que termine de cargar la imagen.';return;}
-  const snapshot={doc:{...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},html:cleanDocumentHTML(modal.querySelector('#nd-paper').innerHTML),page:{...layout},identity:{...identity}};
+  const snapshot={doc:{...doc,editorContent:{...doc.editorContent,comments:structuredClone(comments)},name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},html:cleanDocumentHTML(modal.querySelector('#nd-paper').innerHTML),page:{...layout},identity:{...identity}};
   try{b.disabled=true;modal.querySelector('#nd-error').textContent='';const {buildNativeDOCX,docxFilename}=await import('./native-docx.js');let preserved=null;if(libraryContext){const {preserveOriginalWord}=await import('./native-docx-preserve.js');preserved=await preserveOriginalWord(libraryContext.original,doc.editorContent.sourceBaseline,{...snapshot,sourceHeader:doc.editorContent.sourceHeader,sourceFooter:doc.editorContent.sourceFooter});}const blob=preserved?.blob||await buildNativeDOCX(snapshot),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=docxFilename(snapshot.doc.name);document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);modal.querySelector('#nd-state').textContent=(preserved?.mode==='original'?'Word original descargado sin reconstrucción':preserved?.mode==='preserved'?'Word descargado conservando su estructura original':preserved?'Word reconstruido desde el editor · revisa el diseño':'Word descargado')+(dirty?' · Guarda también los cambios en la biblioteca':'');if(preserved?.mode==='rebuild')modal.querySelector('#nd-error').textContent=preserved.reason+' El archivo original sigue disponible en Descargar original.';}
   catch(error){modal.querySelector('#nd-error').textContent='No se pudo exportar a Word: '+error.message;}finally{b.disabled=false;}
  }
@@ -164,13 +166,14 @@ modal.addEventListener('click',async e=>{
  }
 });
 export async function buildNativePrintHTML(documentInfo,html,page,header){
+ html=finalRevisionHTML(html);
  const content=document.createElement('div');content.innerHTML=cleanDocumentHTML(html);const sections=collectSections(content);
  if(sections.length){const documents=[];for(const node of sections){const cfg=sectionData(node),regions=sectionRegions(node);documents.push(await buildNativePrintHTML({...documentInfo,editorContent:{...documentInfo.editorContent,sourceFormatVersion:6,sourceHeader:regions['header-default'],sourceFooter:regions['footer-default'],sourceRegions:regions,sourceSection:cfg}},sectionBody(node)?.innerHTML||'',cfg.page,{enabled:false}));}return '<!doctype html><html><head><meta charset="utf-8"></head><body>'+documents.map(text=>'<template data-print-section>'+esc(text)+'</template>').join('')+'</body></html>';}
 
  const config=identitySettings(header),logo=config.enabled&&config.showLogo?await identityLogo():'',geom=pageGeometry(page,config),source=documentInfo.editorContent;
  const original=source?.sourceFormatVersion>=2;
- const extra=source?.sourceRegions?(await Promise.all(Object.entries(source.sourceRegions).map(async([key,value])=>'<template data-source-region="'+key+'">'+await imagePrintHTML(cleanDocumentHTML(value))+'</template>'))).join(''):'';
- const regions=original?`<div class="source-print-header">${await imagePrintHTML(cleanDocumentHTML(source.sourceHeader||''))}</div><div class="source-print-footer">${await imagePrintHTML(cleanDocumentHTML(source.sourceFooter||''))}</div>`:'';
+ const extra=source?.sourceRegions?(await Promise.all(Object.entries(source.sourceRegions).map(async([key,value])=>'<template data-source-region="'+key+'">'+await imagePrintHTML(cleanDocumentHTML(finalRevisionHTML(value)))+'</template>'))).join(''):'';
+ const regions=original?`<div class="source-print-header">${await imagePrintHTML(cleanDocumentHTML(finalRevisionHTML(source.sourceHeader||'')))}</div><div class="source-print-footer">${await imagePrintHTML(cleanDocumentHTML(finalRevisionHTML(source.sourceFooter||'')))}</div>`:'';
  const css=original?'.source-print-header{position:running(sourceHeader);width:100%;text-align:left}.source-print-footer{position:running(sourceFooter);width:100%;font-size:9pt}@page{@top-center{content:element(sourceHeader)}@bottom-center{content:element(sourceFooter)}}':await identityPageStyles(documentInfo,header,logo,geom.contentWidth);
  return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(documentInfo.name)+'</title><style>'+printStyles(page)+css+`body{margin:0;overflow-wrap:anywhere}img[data-image-id]{max-height:${geom.contentHeight}mm;object-fit:contain}`+'</style></head><body data-print-height="'+geom.contentHeight+'" data-print-width="'+geom.contentWidth+'" data-section-config="'+esc(JSON.stringify(source?.sourceSection||{page}))+'">'+await imagePrintHTML(extra)+regions+await imagePrintHTML(cleanDocumentHTML(html))+'</body></html>';
 }

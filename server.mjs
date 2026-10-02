@@ -38,6 +38,6 @@ http.createServer(async (req, res) => {
 for(const f of ['sheet-data.js','sheet-data-model.js','sheet-data-rules.js'])allowed.add('/'+f);
 
 for(const f of ['platform-cloud.js','platform-boot.js','public/vendor/supabase-2.117.2.js','public/vendor/supabase-LICENSE.txt'])allowed.add('/'+f);
-for(const f of ['library-upload.js','library-upload-model.js','document-source-history.js','assistant-documents.js','assistant-markdown.js','native-docx-import.js','native-docx-format.js','native-docx-preserve.js','native-print.js','native-word-sections.js','native-math-import.js'])allowed.add('/'+f);
+for(const f of ['library-upload.js','library-upload-model.js','document-source-history.js','assistant-documents.js','assistant-markdown.js','native-docx-import.js','native-docx-format.js','native-docx-preserve.js','native-print.js','native-word-sections.js','native-word-comments.js','native-word-revisions.js','native-math-import.js'])allowed.add('/'+f);
 
 for(const f of ['mammoth-1.13.0.js','mammoth-LICENSE.txt'])allowed.add('/public/vendor/'+f);

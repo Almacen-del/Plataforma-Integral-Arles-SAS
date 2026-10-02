@@ -1,3 +1,5 @@
+import {prepareWordRevisions} from './native-word-revisions.js';
+import {readWordComments,prepareCommentMarkers,commentQuotes} from './native-word-comments.js';
 import {prepareWordMath} from './native-math-import.js';
 import {sectionSettings} from './native-word-sections.js';
 import {addImage,clearImageSession} from './native-assets.js';
@@ -9,16 +11,18 @@ export async function importWord(file){
  await loadXlsxReader();const zip=await window.JSZip.loadAsync(bytes);if(!zip.file('word/document.xml'))throw Error('El archivo no contiene un Word DOCX válido.');
  const {parseWordXML,preserveWordStyles,wordPage}=await import('./native-docx-format.js');
  const main=parseWordXML(await zip.file('word/document.xml').async('string')),styles=parseWordXML(await zip.file('word/styles.xml')?.async('string')||'<styles/>'),numbering=parseWordXML(await zip.file('word/numbering.xml')?.async('string')||'<numbering/>');
+ const comments=await readWordComments(zip,parseWordXML);
  const mammoth=await reader(),warnings=['Se importan el contenido, encabezado, pie y configuración de página. Los objetos flotantes y los saltos automáticos pueden variar respecto a Word. El original se conserva completo.'];
  if([...main.getElementsByTagNameNS('*','cols')].some(n=>['0','false','off'].includes(n.getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','equalWidth'))))warnings.push('El documento usa columnas de anchos distintos; la vista editable las distribuye con anchos iguales. La impresión y la descarga Word conservan sus medidas.');
  if(main.getElementsByTagNameNS('*','sectPr').length>1)warnings.push('Este Word contiene varias secciones: el editor usa una configuración de página común; consulta el original para los cambios de orientación o márgenes entre secciones.');
  if([...main.getElementsByTagNameNS('*','headerReference'),...main.getElementsByTagNameNS('*','footerReference')].some(n=>['first','even'].includes(n.getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','type'))))warnings.push('Los encabezados y pies especiales de primera página o páginas pares todavía no se reproducen por separado.');
- for(const [tag,label] of [['chart','gráficos de Office'],['relIds','diagramas SmartArt'],['txbxContent','cuadros de texto'],['commentReference','comentarios de revisión']])if(main.getElementsByTagNameNS('*',tag).length)warnings.push('El archivo incluye '+label+'; su representación o edición completa todavía requiere consultar el Word original.');
+ for(const [tag,label] of [['chart','gráficos de Office'],['relIds','diagramas SmartArt'],['txbxContent','cuadros de texto']])if(main.getElementsByTagNameNS('*',tag).length)warnings.push('El archivo incluye '+label+'; su representación o edición completa todavía requiere consultar el Word original.');
+ if(zip.file('word/commentsExtended.xml')||zip.file('word/commentsExtensible.xml'))warnings.push('Los comentarios modernos se muestran como anotaciones separadas; sus hilos y estados avanzados se conservan en el original.');
  if(main.getElementsByTagNameNS('*','altChunk').length)warnings.push('Este Word contiene contenido vinculado o incrustado de otro documento; ese contenido se conserva en el original y puede faltar en la vista editable.');
- if(main.getElementsByTagNameNS('*','ins').length||main.getElementsByTagNameNS('*','del').length)warnings.push('Este Word contiene control de cambios previo: revisa el original antes de reconstruirlo, porque las revisiones de Word no se importan como revisiones editables.');
+ if(main.getElementsByTagNameNS('*','ins').length||main.getElementsByTagNameNS('*','del').length)warnings.push('Las inserciones y eliminaciones de texto admitidas se muestran en Revisiones importadas. El PDF presenta el contenido actual y el Word exportado conserva las marcas pendientes.');
  if(main.getElementsByTagNameNS('*','anchor').length)warnings.push('Este archivo contiene objetos flotantes; su posición puede cambiar al importarlos.');
  async function convert(buffer,xml){
-  const mathCopy=await window.JSZip.loadAsync(buffer);const math=prepareWordMath(parseWordXML(await mathCopy.file('word/document.xml').async('string')),warnings);xml=math.xml;
+  const mathCopy=await window.JSZip.loadAsync(buffer),conversionXML=parseWordXML(await mathCopy.file('word/document.xml').async('string')),restoreRevisions=prepareWordRevisions(conversionXML,warnings),restoreComments=prepareCommentMarkers(conversionXML,comments),math=prepareWordMath(conversionXML,warnings);xml=math.xml;
   mathCopy.file('word/document.xml',new XMLSerializer().serializeToString(xml));buffer=await mathCopy.generateAsync({type:'arraybuffer'});
   // Mammoth skips fldSimple cached results. Flatten only the conversion copy;
   // keep the source XML for field ranges and the original archive unchanged.
@@ -31,7 +35,7 @@ export async function importWord(file){
   const template=document.createElement('div');template.innerHTML=result.value;for(const image of template.querySelectorAll('img')){const id=image.getAttribute('src')?.replace(/^arles-image:/,'');if(/^[a-f0-9-]{36}$/i.test(id||'')){image.dataset.imageId=id;image.removeAttribute('src');}else image.replaceWith(document.createTextNode(image.alt||'[Imagen en el original]'));}
   warnings.push(...result.messages.map(m=>m.message));template.innerHTML=preserveWordStyles(template,xml,styles,numbering);
   for(const marker of [...template.querySelectorAll('br.word-page-break,br.word-column-break')]){const kind=marker.classList.contains('word-page-break')?'page':'column',block=marker.closest('p,h1,h2,h3,h4,h5,h6');if(!block){marker.dataset.wordBreak=kind;marker.className='';continue;}const range=document.createRange();range.setStartAfter(marker);range.setEnd(block,block.childNodes.length);const next=block.cloneNode(false);next.removeAttribute('id');next.append(range.extractContents());next.style.breakBefore=kind;marker.remove();block.after(next);}
-  math.restore(template);return template.innerHTML;
+  math.restore(template);restoreComments(template);restoreRevisions(template);return template.innerHTML;
  }
  try{
   const rels=parseWordXML(await zip.file('word/_rels/document.xml.rels').async('string'));
@@ -50,11 +54,11 @@ export async function importWord(file){
     for(const kind of ['header','footer'])for(const type of ['default','first','even']){const key=kind+'-'+type,ref=[...(group.properties?.getElementsByTagNameNS(W,kind+'Reference')||[])].find(n=>attr(n,'type')===type);if(ref)linked[key]=await region(kind,type,group.properties);const el=document.createElement('div');el.dataset.wordRegion=key;el.innerHTML=linked[key]||'';wrapper.append(el);}
     const contentNode=document.createElement('div');contentNode.dataset.wordBody='true';contentNode.innerHTML=content;wrapper.append(contentNode);output.append(wrapper);
    }
-   const notices=warnings.filter(w=>!w.startsWith('Este Word contiene varias secciones:')&&!w.startsWith('Los encabezados y pies especiales'));notices.push('Se conservan las secciones y sus encabezados y pies. Vista de páginas muestra la composición de impresión.');if(groups.some(g=>attr(direct(g.properties,'type'))==='continuous'))notices.push('Los saltos continuos se conservan al exportar Word; la vista PDF inicia una página nueva para cada sección.');
-   return {html:output.innerHTML,page:firstPage,sourceHeader:'',sourceFooter:'',sourceFormatVersion:6,warnings:[...new Set(notices)],formatHTML:value=>value};
+   const notices=warnings.filter(w=>!w.startsWith('Este Word contiene varias secciones:')&&!w.startsWith('Los encabezados y pies especiales'));notices.push('Se conservan las secciones y sus encabezados y pies. Vista de páginas muestra la composición de impresión.');if(groups.some(g=>attr(direct(g.properties,'type'))==='continuous'))notices.push('Los saltos continuos comparten página cuando mantienen la misma configuración, encabezados y numeración. Los cambios de esas propiedades pueden iniciar otra página en PDF.');
+   return {comments:commentQuotes(output.innerHTML,comments),html:output.innerHTML,page:firstPage,sourceHeader:'',sourceFooter:'',sourceFormatVersion:6,warnings:[...new Set(notices)],formatHTML:value=>value};
   }
   const html=await convert(bytes,main),page=wordPage(main);
-  return {html,page,formatHTML:value=>{const root=document.createElement('div');root.innerHTML=value;return preserveWordStyles(root,main,styles,numbering);},sourceHeader:await region('header'),sourceFooter:await region('footer'),sourceFormatVersion:6,warnings:[...new Set(warnings)]};
+  return {comments:commentQuotes(html,comments),html,page,formatHTML:value=>{const root=document.createElement('div');root.innerHTML=value;return preserveWordStyles(root,main,styles,numbering);},sourceHeader:await region('header'),sourceFooter:await region('footer'),sourceFormatVersion:6,warnings:[...new Set(warnings)]};
  }catch(e){await clearImageSession();throw e;}
 
 }
@@ -66,9 +70,9 @@ export async function openLibraryWord(doc,version,blob){
   const key='editor-docx:'+version.fileId,draft=await blobOperation('get',key),file=new File([blob],version.fileName,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   if(draft&&(draft.kind!=='library-docx-v1'||draft.fileId!==version.fileId||typeof draft.document?.editorContent?.html!=='string'))throw Error('El borrador Word no se pudo leer. No se sobrescribió.');
   const imported=draft?.document.editorContent.sourceFormatVersion===6?null:await importWord(file);
-  const content=draft?.document||{...doc,editorContent:{html:cleanDocumentHTML(imported.html),revision:0,page:imported.page,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:6,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,identity:{enabled:false}},editorHistory:[],importWarnings:imported.warnings};
+  const content=draft?.document||{...doc,editorContent:{html:cleanDocumentHTML(imported.html),revision:0,page:imported.page,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:6,comments:imported.comments,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,identity:{enabled:false}},editorHistory:[],importWarnings:imported.warnings};
   if(draft&&imported){content.editorContent={...content.editorContent,html:cleanDocumentHTML(imported.formatHTML(content.editorContent.html)),page:imported.page,sourceHeaderDistance:imported.page.sourceHeaderDistance,sourceFooterDistance:imported.page.sourceFooterDistance,sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter),sourceFormatVersion:6};content.importWarnings=imported.warnings;}
-  if(imported)content.editorContent.sourceBaseline={html:cleanDocumentHTML(imported.html),page:imported.page,identity:{enabled:false},sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter)};
+  if(imported)content.editorContent.sourceBaseline={comments:imported.comments,html:cleanDocumentHTML(imported.html),page:imported.page,identity:{enabled:false},sourceHeader:cleanDocumentHTML(imported.sourceHeader),sourceFooter:cleanDocumentHTML(imported.sourceFooter)};
   let expectedRevision=draft?.document.editorContent.revision||0;
   openImportedWord(content,{original:file,onSave:async next=>{
    const {platformStorage}=await import('./platform-cloud.js');const current=JSON.parse(platformStorage.getItem('arles-documental-prototipo-v1')).documents.find(d=>d.id===doc.id);

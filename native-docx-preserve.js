@@ -18,6 +18,7 @@ function sameStructure(a,b,changed){
 export async function preserveOriginalWord(original,baseline,current){
  const fail=reason=>({mode:'rebuild',reason});
  if(!baseline)return fail('Este borrador no tiene una referencia de importación.');
+ if(JSON.stringify(baseline.comments||[])!==JSON.stringify(current.doc?.editorContent?.comments||[]))return fail('Cambiaron los comentarios de revisión.');
  if(JSON.stringify(normalizePage(baseline.page))!==JSON.stringify(normalizePage(current.page))||JSON.stringify(identitySettings(baseline.identity))!==JSON.stringify(identitySettings(current.identity)))return fail('Cambió la configuración de página o encabezados.');
  if(baseline.sourceHeader!==current.sourceHeader||baseline.sourceFooter!==current.sourceFooter)return fail('Cambió el encabezado o pie.');
  const before=parseHTML(baseline.html),after=parseHTML(current.html),changed=new Set();
