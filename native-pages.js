@@ -32,6 +32,8 @@ export function attachPages(modal,{snapshot,buildPrintHTML}){
    const record=n=>{for(let k=0;k<n;k++)if(!positions.includes(cutAt(k)))positions.push(cutAt(k));page=Math.max(page,n);};
    function moveBlock(node,n){const {y}=measure(node),next=cutAt(n)+gap+top,css=getComputedStyle(node);addRule(selector(node)+'{margin-top:'+(parseFloat(css.marginTop)+Math.max(0,next-y))+'px!important}');record(n+1);return n+1;}
    function layoutBlock(node,n){const {y,h}=measure(node),manual=node.matches('[data-page-break],[data-layout-break="page"],[data-layout-break="nextPage"],[data-layout-break="evenPage"],[data-layout-break="oddPage"]');
+    if(node.style.breakBefore==='page'&&node.previousElementSibling)return moveBlock(node,n);
+    if(node.style.breakAfter==='avoid'&&node.nextElementSibling){const next=measure(node.nextElementSibling);if(next.y+next.h>endAt(n)&&next.y+next.h-y<usable)return moveBlock(node,n);}
     if(manual){addRule(selector(node)+'{height:'+Math.max(0,cutAt(n)+gap+top-y)+'px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important}'+selector(node)+'::after{display:none!important}');record(n+1);return n+1;}
     if(y+h>endAt(n)&&h<usable)return moveBlock(node,n);
     return n;
