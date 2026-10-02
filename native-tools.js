@@ -34,6 +34,8 @@ export function copySafeStyles(node,result){
  if(node.dataset.suppressLineNumbers==='true')result.dataset.suppressLineNumbers='true';
  if(node.tagName==='BR'&&node.style.clear==='both')result.style.clear='both';
  const s=node.style;
+ if(node.tagName==='TABLE'&&s.borderCollapse==='collapse')result.style.borderCollapse='collapse';
+ if(node.tagName==='LI'&&s.listStyleType==='none')result.style.listStyleType='none';
  if(node.tagName==='TABLE'&&/^[a-f0-9-]{36}$/.test(node.dataset.chartTable||''))result.dataset.chartTable=node.dataset.chartTable;
  if(node.tagName==='IMG'&&/^[a-f0-9-]{36}$/.test(node.dataset.chartId||''))result.dataset.chartId=node.dataset.chartId;
  if(node.tagName==='IMG'&&node.dataset.chart){try{result.dataset.chart=JSON.stringify(validateChart(JSON.parse(node.dataset.chart)));}catch{}}

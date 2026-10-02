@@ -91,7 +91,7 @@ function render(){
  if(paper)disposePages=attachPages(modal,{snapshot:()=>({doc:{...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},html:paper.innerHTML,page:{...layout},identity:{...identity}}),buildPrintHTML:buildNativePrintHTML});
  if(editing&&toolbar){const tabs=toolbar.querySelector('.nd-ribbon-tabs');if(tabs){const state=actions.querySelector('#nd-state');if(state)modal.querySelector('.nd-head>div').append(state);tabs.append(actions);actions.setAttribute('aria-label','Acciones del documento');}}
 }
-function refreshIdentity(){const header=modal.querySelector('.nd-identity-preview'),footer=modal.querySelector('.nd-footer-preview');if(!header)return;header.innerHTML=identityHeader({...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},identity);footer.innerHTML=identityFooter(identity);header.style.paddingBottom=identity.headerGap+'mm';footer.style.paddingTop=identity.footerGap+'mm';const mini=modal.querySelector('[data-identity-preview]');if(mini)mini.innerHTML=identityMiniPreview({...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},identity);for(const element of [header,footer]){element.style.maxWidth=modal.querySelector('#nd-paper').style.getPropertyValue('--page-width');element.style.setProperty('--page-margin',layout.margin+'mm');element.style.paddingLeft=layout.left+'mm';element.style.paddingRight=layout.right+'mm';}}
+function refreshIdentity(){const header=modal.querySelector('.nd-identity-preview'),footer=modal.querySelector('.nd-footer-preview');if(!header)return;if(libraryContext&&doc.editorContent.sourceFormatVersion===2){header.innerHTML=cleanDocumentHTML(doc.editorContent.sourceHeader||'');footer.innerHTML=cleanDocumentHTML(doc.editorContent.sourceFooter||'');for(const el of [header,footer]){el.style.maxWidth=modal.querySelector('#nd-paper').style.getPropertyValue('--page-width');el.style.paddingLeft=layout.left+'mm';el.style.paddingRight=layout.right+'mm';el.style.color='#000';}header.hidden=!header.textContent.trim()&&!header.querySelector('img');footer.hidden=!footer.textContent.trim();header.style.paddingTop=(doc.editorContent.sourceHeaderDistance??12.7)+'mm';header.style.paddingBottom='0';hydrateImages(header).then(()=>{if(header.isConnected){const paper=modal.querySelector('#nd-paper');paper.style.paddingTop=Math.max(0,layout.top-header.offsetHeight*25.4/96)+'mm';}});hydrateImages(footer);return;}header.innerHTML=identityHeader({...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},identity);footer.innerHTML=identityFooter(identity);header.style.paddingBottom=identity.headerGap+'mm';footer.style.paddingTop=identity.footerGap+'mm';const mini=modal.querySelector('[data-identity-preview]');if(mini)mini.innerHTML=identityMiniPreview({...doc,name:modal.querySelector('#nd-name')?.value??doc.name,code:modal.querySelector('#nd-code')?.value??doc.code},identity);for(const element of [header,footer]){element.style.maxWidth=modal.querySelector('#nd-paper').style.getPropertyValue('--page-width');element.style.setProperty('--page-margin',layout.margin+'mm');element.style.paddingLeft=layout.left+'mm';element.style.paddingRight=layout.right+'mm';}}
 function markDirty(){dirty=true;modal.querySelector('#nd-state').textContent='Cambios sin guardar';}
 async function save(recovery=null){
  if(busy||(recovery?dirty:!editing||!dirty))return false;
@@ -109,8 +109,8 @@ async function save(recovery=null){
     const revision=baseRevision+1,at=new Date().toISOString(),actor=currentAuditActor(),target=structuredClone(doc);
     target.editorHistory||=[];
     if(!target.editorHistory.length)target.editorHistory.push({...target.editorContent,revision:baseRevision,at,reason:'Contenido importado antes del primer cambio',author:'',role:''});
-    target.editorContent={html,revision,page,identity:header,comments:review};target.editorHistory.push({...target.editorContent,at,name,code,author:actor?.name||'',role:actor?.role||'',reason:actor?.reason||'',...(recovery?{restoredFrom:recovery.revision}:{})});target.name=name;target.code=code;
-    await libraryContext.onSave(target);commitImages(target.editorHistory.map(h=>h.html).join('')); doc=target;baseRevision=revision;dirty=false;return;
+    target.editorContent={...target.editorContent,html,revision,page,identity:header,comments:review};target.editorHistory.push({...target.editorContent,at,name,code,author:actor?.name||'',role:actor?.role||'',reason:actor?.reason||'',...(recovery?{restoredFrom:recovery.revision}:{})});target.name=name;target.code=code;
+    await libraryContext.onSave(target);commitImages(target.editorHistory.map(h=>h.html+(h.sourceHeader||'')+(h.sourceFooter||'')).join('')); doc=target;baseRevision=revision;dirty=false;return;
    }
    const s=load(),latest=s.documents.find(d=>d.id===doc.id);
    if(!isNew&&!latest)throw Error('El documento fue eliminado. No se sobrescribió ningún dato.');
@@ -123,7 +123,7 @@ async function save(recovery=null){
    if(s.documents.some(d=>d.id!==target.id&&String(d.code||'').trim().toLocaleLowerCase()===code.toLocaleLowerCase()))throw Error('Ese código ya pertenece a otro documento.');
    const revision=baseRevision+1,at=new Date().toISOString();
    const actor=currentAuditActor();const restored=recovery?{restoredFrom:recovery.revision}:{};
-   target.editorContent={html,revision,page,identity:header,comments:review};target.editorHistory=[...(target.editorHistory||[]),{html,revision,at,page,name,code,identity:header,comments:review,author:actor?.name||'',role:actor?.role||'',reason:actor?.reason||'',...restored}];target.modified=at;
+   target.editorContent={...target.editorContent,html,revision,page,identity:header,comments:review};target.editorHistory=[...(target.editorHistory||[]),{html,revision,at,page,name,code,identity:header,comments:review,author:actor?.name||'',role:actor?.role||'',reason:actor?.reason||'',...restored}];target.modified=at;
    target.name=name;target.code=code;if(isNew)s.documents.push(target);
    auditSave(KEY,s,'Biblioteca');commitImages(html);doc=structuredClone(target);baseRevision=revision;isNew=false;dirty=false;
   });
@@ -164,5 +164,12 @@ modal.addEventListener('click',async e=>{
   }catch(error){modal.querySelector('#nd-error').textContent=error.message;}finally{b.disabled=false;}
  }
 });
-export async function buildNativePrintHTML(documentInfo,html,page,header){const config=identitySettings(header),logo=config.enabled&&config.showLogo?await identityLogo():'',geom=pageGeometry(page,config);return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(documentInfo.name)+'</title><style>'+printStyles(page)+await identityPageStyles(documentInfo,header,logo,geom.contentWidth)+`body{margin:0;overflow-wrap:anywhere}img[data-image-id]{max-height:${geom.contentHeight}mm;object-fit:contain}`+'</style></head><body>'+await imagePrintHTML(cleanDocumentHTML(html))+'</body></html>';}
+export async function buildNativePrintHTML(documentInfo,html,page,header){
+ const config=identitySettings(header),logo=config.enabled&&config.showLogo?await identityLogo():'',geom=pageGeometry(page,config),source=documentInfo.editorContent;
+ const original=source?.sourceFormatVersion===2;
+ const regions=original?`<div class="source-print-header">${await imagePrintHTML(cleanDocumentHTML(source.sourceHeader||''))}</div><div class="source-print-footer">${await imagePrintHTML(cleanDocumentHTML(source.sourceFooter||''))}</div>`:'';
+ const css=original?'.source-print-header{position:running(sourceHeader);width:100%}.source-print-footer{position:running(sourceFooter);width:100%;font-size:9pt}@page{@top-center{content:element(sourceHeader)}@bottom-center{content:element(sourceFooter)}}':await identityPageStyles(documentInfo,header,logo,geom.contentWidth);
+ return '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(documentInfo.name)+'</title><style>'+printStyles(page)+css+`body{margin:0;overflow-wrap:anywhere}img[data-image-id]{max-height:${geom.contentHeight}mm;object-fit:contain}`+'</style></head><body>'+regions+await imagePrintHTML(cleanDocumentHTML(html))+'</body></html>';
+}
+
 modal.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();}});
