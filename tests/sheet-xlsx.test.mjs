@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setGridBounds,columnName,columnIndex} from '../sheet-grid-limits.js';
 import {newBook,newSheet,address,position,translateFormula,writeCells,value} from '../sheet-model.js';
-import {checkXlsxArchive,xlsxFormula,importCellStyle} from '../sheet-xlsx.js';
+import {xlsxColumnPixels,xlsxAnchor,xlsxListItems,checkXlsxArchive,xlsxFormula,importCellStyle} from '../sheet-xlsx.js';
 import {prepareCalculation} from '../sheet-calculation.js';
 test('Referencias amplias y fórmulas entre hojas no recortan datos después de la fila 100',()=>{
  setGridBounds(6858,64);try{assert.equal(address(4000,27),'AB4001');assert.deepEqual(position('AB4001'),[4000,27]);assert.equal(columnName(255),'IV');assert.equal(columnIndex('IV'),255);const b=newBook(),s=b.sheets[0];writeCells(s,{AB4001:'17',AB4002:'=AB4001*2'});prepareCalculation(b);assert.equal(value(s,'AB4002'),34);assert.equal(translateFormula('=$AB4001+AB$4001',1,1),'=$AB4002+AC$4001');assert.throws(()=>position('BM1'));}finally{setGridBounds();}
@@ -18,4 +18,12 @@ test('Estilos importados mantienen fuente, bordes, colores, formato y protecció
 });
 test('Archivos inválidos o demasiado grandes se rechazan antes de descomprimir',()=>{
  assert.throws(()=>checkXlsxArchive(new ArrayBuffer(22)),/válido/);const buffer=new ArrayBuffer(98),v=new DataView(buffer);v.setUint32(0,0x04034b50,true);v.setUint32(30,0x02014b50,true);v.setUint32(76,0x06054b50,true);v.setUint16(86,1,true);v.setUint32(92,30,true);v.setUint32(54,151*1024*1024,true);assert.throws(()=>checkXlsxArchive(buffer),/150 MB/);v.setUint32(54,0,true);v.setUint16(38,1,true);assert.throws(()=>checkXlsxArchive(buffer),/cifrados/);
+});
+
+test('Las medidas OOXML no duplican el relleno ni desplazan las imágenes',()=>{
+ assert.equal(xlsxColumnPixels(6.43),45);assert.equal(xlsxColumnPixels(7.29),51);assert.equal(xlsxColumnPixels(25.71),180);assert.equal(xlsxColumnPixels(8.7109375),61);
+ assert.deepEqual(xlsxAnchor({nativeCol:0,nativeRow:0,nativeColOff:104775,nativeRowOff:57150}),{col:0,row:0,colOffset:11,rowOffset:6});
+});
+test('Las listas largas concatenadas conservan las opciones completas',()=>{
+ assert.deepEqual(xlsxListItems('"uno,do"&"s,tres"'),['uno','dos','tres']);assert.deepEqual(xlsxListItems('"Texto ""citado"",otro"'),['Texto "citado"','otro']);assert.equal(xlsxListItems("'Otra hoja'!A1:A5"),null);
 });

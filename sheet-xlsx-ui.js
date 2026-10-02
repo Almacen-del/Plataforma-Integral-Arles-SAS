@@ -1,4 +1,4 @@
-import {readXlsx,loadXlsxReader,saveXlsxDraft,readXlsxDraft,xlsxOriginal} from './sheet-xlsx.js';
+import {upgradeXlsxPresentation,readXlsx,loadXlsxReader,saveXlsxDraft,readXlsxDraft,xlsxOriginal} from './sheet-xlsx.js';
 import {workbookBounds} from './sheet-grid-limits.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function createXlsxController(api){let pending=null,busy=false;
@@ -9,5 +9,5 @@ export function createXlsxController(api){let pending=null,busy=false;
   if(a==='xlsx-original'){try{const blob=await xlsxOriginal(api.book().id);if(!blob)throw Error('Este libro no tiene un original XLSX importado.');const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=api.book().xlsxImport.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);api.notice('Original XLSX descargado sin modificaciones.');}catch(e){api.notice(e.message);}return true;}
   return false;
  }
- return {action,async restore(marker){if(!marker?.xlsxDraft)return marker;await loadXlsxReader();const b=await readXlsxDraft();if(!b)throw Error('No se encontró el borrador XLSX.');workbookBounds(b);return b;},async persist(book){if(!book.xlsxImport)return false;await saveXlsxDraft(book);localStorage.setItem(api.key,JSON.stringify({version:1,xlsxDraft:true}));return true;},reset(){pending=null;}};
+ return {action,async restore(marker){if(!marker?.xlsxDraft)return marker;await loadXlsxReader();const b=await readXlsxDraft();if(!b)throw Error('No se encontró el borrador XLSX.');await upgradeXlsxPresentation(b);workbookBounds(b);return b;},async persist(book){if(!book.xlsxImport)return false;await saveXlsxDraft(book);localStorage.setItem(api.key,JSON.stringify({version:1,xlsxDraft:true}));return true;},reset(){pending=null;}};
 }
