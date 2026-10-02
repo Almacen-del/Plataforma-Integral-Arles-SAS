@@ -54,6 +54,11 @@ export function copySafeStyles(node,result){
   if(/^#[\da-f]{6}$/i.test(node.getAttribute('color')||''))result.style.color=node.getAttribute('color');
  }
  if(['TD','TH'].includes(node.tagName)){for(const attr of ['colspan','rowspan']){const n=Number(node.getAttribute(attr));if(Number.isInteger(n)&&n>=1&&n<=20)result.setAttribute(attr,n);}}
+ if(['TD','TH'].includes(node.tagName))for(const side of ['Top','Bottom','Left','Right']){
+  for(const prop of ['border'+side+'Width','padding'+side])if(/^\d+(\.\d+)?px$/.test(s[prop])&&parseFloat(s[prop])<=100)result.style[prop]=s[prop];
+  if(['solid','double','dashed','dotted','none'].includes(s['border'+side+'Style']))result.style['border'+side+'Style']=s['border'+side+'Style'];
+  if(/^(#[\da-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i.test(s['border'+side+'Color']))result.style['border'+side+'Color']=s['border'+side+'Color'];
+ }
  if(['TABLE','TD','TH','IMG'].includes(node.tagName)){
   for(const prop of ['borderWidth','padding'])if(/^\d+(\.\d+)?px$/.test(s[prop])&&parseFloat(s[prop])<=40)result.style[prop]=s[prop];
   if(['solid','dashed','dotted','none'].includes(s.borderStyle))result.style.borderStyle=s.borderStyle;
