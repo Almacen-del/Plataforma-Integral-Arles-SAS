@@ -42,13 +42,13 @@ export function copySafeStyles(node,result){
  if(node.tagName==='IMG'&&node.dataset.diagram){try{result.dataset.diagram=JSON.stringify(validateDiagram(JSON.parse(node.dataset.diagram)));}catch{}} 
  if(node.tagName==='OL'&&node.dataset.multilevel==='true')result.dataset.multilevel='true';
  for(const prop of ['color','backgroundColor'])if(/^(#[\da-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i.test(s[prop]))result.style[prop]=s[prop];
- const family=s.fontFamily.replaceAll('"','').replaceAll("'",'');if(fonts.includes(family))result.style.fontFamily=family;
+ const family=s.fontFamily.replaceAll('"','').replaceAll("'",'');if(/^[\p{L}\p{N} _,-]{1,100}$/u.test(family))result.style.fontFamily=family;
  if(/^(\d+(\.\d+)?)(px|pt)$/.test(s.fontSize)&&parseFloat(s.fontSize)>=6&&parseFloat(s.fontSize)<=96)result.style.fontSize=s.fontSize;
  if(['bold','normal','400','700'].includes(s.fontWeight))result.style.fontWeight=s.fontWeight;
  if(['italic','normal'].includes(s.fontStyle))result.style.fontStyle=s.fontStyle;
  if(['underline','line-through','none'].includes(s.textDecorationLine))result.style.textDecorationLine=s.textDecorationLine;
- if(['1','1.15','1.5','2'].includes(s.lineHeight))result.style.lineHeight=s.lineHeight;
- for(const prop of ['marginTop','marginBottom','marginLeft','marginRight','textIndent'])if(/^(0|\d+(\.\d+)?(px|pt))$/.test(s[prop])&&parseFloat(s[prop])<=300)result.style[prop]=s[prop];
+ if((/^\d+(\.\d+)?$/.test(s.lineHeight)&&Number(s.lineHeight)>=.5&&Number(s.lineHeight)<=5)||(/^\d+(\.\d+)?(pt|px)$/.test(s.lineHeight)&&parseFloat(s.lineHeight)<=200))result.style.lineHeight=s.lineHeight;
+ for(const prop of ['marginTop','marginBottom','marginLeft','marginRight','textIndent'])if(/^(0|-?\d+(\.\d+)?(px|pt))$/.test(s[prop])&&Math.abs(parseFloat(s[prop]))<=300)result.style[prop]=s[prop];
  if(node.tagName==='FONT'){
   if(fonts.includes(node.getAttribute('face')))result.style.fontFamily=node.getAttribute('face');
   if(/^#[\da-f]{6}$/i.test(node.getAttribute('color')||''))result.style.color=node.getAttribute('color');
