@@ -10,7 +10,7 @@
     "test:ocr": "node --test tests/pdf-ocr.test.mjs && node tests/pdf-ocr.browser.cjs",
     "test:word": "node tests/word-inline-format.browser.cjs && node tests/word-table-format.browser.cjs && node tests/word-preserve.browser.cjs && node tests/library-word.browser.cjs && node tests/native-print.browser.cjs && node tests/word-layout-fidelity.browser.cjs && node tests/word-sections.browser.cjs && node tests/word-unequal-columns.browser.cjs && node tests/word-math-import.browser.cjs && node tests/word-capacity.browser.cjs && node tests/word-section-breaks.browser.cjs && node tests/word-comments.browser.cjs && node tests/word-revisions.browser.cjs && node tests/word-chart-types.browser.cjs && node tests/word-draft-upgrade.browser.cjs",
     "test:word:corpus": "node tests/word-corpus.browser.cjs",
-    "test:word:references": "node tests/word-footnotes-print.browser.cjs && node tests/word-fields-update.browser.cjs"
+    "test:word:references": "node tests/word-footnotes-print.browser.cjs && node tests/word-fields-update.browser.cjs && node tests/word-ref-fields.browser.cjs && node tests/word-complex-fields.browser.cjs && node tests/word-endnotes-sections.browser.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2"

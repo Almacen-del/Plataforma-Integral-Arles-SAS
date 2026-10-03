@@ -6,10 +6,11 @@ const parse=(s,fallback={})=>{try{return JSON.parse(s);}catch{return fallback;}}
 // Unknown switches keep their original result rather than approximating Word behavior.
 export function refreshImportedFields(paper,enable=false){
  const headings=[...paper.querySelectorAll('h1,h2,h3,h4,h5,h6')].filter(n=>headingLevel(n)>0&&!n.closest('[data-ref-generated],[data-word-field],[data-text-box]'));
- const counts=new Map();let updated=0,unsupported=0;
+ const counts=new Map(),references=[];let updated=0,unsupported=0;
  for(const node of paper.querySelectorAll('[data-word-field]')){
   const field=parse(node.dataset.wordField),instruction=String(field.instruction||'').trim();
   const toc=/^TOC(?:\s+\\o\s+"([1-9])-([1-9])")?(?:\s+\\[hzu])*$/i.exec(instruction),seq=/^SEQ\s+([\p{L}\p{N}_]+)(?:\s+\\\*\s+ARABIC)?(?:\s+\\(r)\s+(\d+)|\s+\\(c))?$/iu.exec(instruction);
+  const ref=/^(REF|PAGEREF)\s+"?([A-Za-z_][A-Za-z0-9_]{0,39})"?(?:\s+\\h)?$/i.exec(instruction);if(ref){references.push({node,field,ref});continue;}
   if(!toc&&!seq){if(enable)unsupported++;continue;}
   let number;if(seq){number=seq[2]?Number(seq[3]):seq[4]?(counts.get(seq[1])||0):(counts.get(seq[1])||0)+1;if(!Number.isSafeInteger(number)||number<0||number>2147483647){if(enable)unsupported++;continue;}counts.set(seq[1],number);}
   if(!enable&&!field.live)continue;
@@ -23,6 +24,7 @@ export function refreshImportedFields(paper,enable=false){
    }if(!selected.length)node.textContent='Sin títulos para este índice.';
   }updated++;
  }
+ for(const {node,field,ref} of references){if(!enable&&!field.live)continue;const start=[...paper.querySelectorAll('[data-bookmark]')].find(n=>n.dataset.bookmark===ref[2]),end=[...paper.querySelectorAll('[data-word-bookmark-end]')].find(n=>n.dataset.wordBookmarkEnd===ref[2]);let value;if(!start)value='[Referencia no disponible: '+ref[2]+']';else if(ref[1].toUpperCase()==='PAGEREF')value='—';else if(end&&(start.compareDocumentPosition(end)&Node.DOCUMENT_POSITION_FOLLOWING)){const range=document.createRange();range.setStart(start,0);range.setEndBefore(end);if(range.intersectsNode(node)){if(enable)unsupported++;continue;}value=range.cloneContents().textContent;}else{if(enable)unsupported++;continue;}field.live=true;node.dataset.wordField=JSON.stringify(field);node.contentEditable='false';if(node.textContent!==value)node.textContent=value;updated++;}
  return {updated,unsupported};
 }
 export function headingNumbering(paper){const value=parse(paper.querySelector('[data-ref-store]')?.dataset.refStore).headingNumbering;return ['none','zero'].includes(value)?value:'decimal';}
@@ -87,6 +89,7 @@ export function attachReferences(modal,{focus,commit}){
  paper.addEventListener('dblclick',e=>{const toc=e.target.closest('[data-ref-generated]');if(toc&&['toc','bibliography','index','figures'].includes(parse(toc.dataset.refGenerated).kind)){const kind=parse(toc.dataset.refGenerated).kind;if(kind==='toc')panel.querySelector('[data-reference-tool=toc]').click();else referenceDesigner(kind,toc);return;}const n=e.target.closest('[data-ref-caption]');if(n){const current=parse(n.dataset.refCaption);dialog('Editar título',select('kind','Rótulo',[['Figura','Figura'],['Tabla','Tabla'],['Ecuación','Ecuación']],current.kind)+input('text','Descripción',current.text),v=>{if(!v.text.trim())throw Error('Escribe una descripción.');n.dataset.refCaption=JSON.stringify(v);update();},'Guardar');}if(e.target.closest('[data-ref-note]'))notes();});
  paper.addEventListener('click',e=>{const cross=e.target.closest('[data-ref-cross]');if(cross){const target=parse(cross.dataset.refCross).target;if(/^ref_[a-z0-9_]+$/i.test(target||''))paper.querySelector('[id="'+target+'"]')?.scrollIntoView({block:'center'});}});
  paper.addEventListener('click',e=>{const link=e.target.closest('[data-ref-generated] a');if(link){e.preventDefault();const target=paper.querySelector('[id="'+link.getAttribute('href').slice(1)+'"]');target?.scrollIntoView({block:'center'});}});
+ paper.addEventListener('input',()=>refreshImportedFields(paper));
  refreshReferences(paper);
  let signature='';const headingSignature=()=>[...paper.querySelectorAll('h1,h2,h3,h4,h5,h6')].filter(n=>!n.closest('[data-ref-generated],[data-text-box]')&&!n.hasAttribute('data-document-title')).map(n=>headingLevel(n)+'|'+n.id+'|'+n.textContent).join('\n');signature=headingSignature();
  modal._referenceObserver?.disconnect();const observer=new MutationObserver(()=>{const next=headingSignature();if(next===signature)return;signature=next;refreshReferences(paper);signature=headingSignature();commit();});observer.observe(paper,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['data-outline-level','data-document-title']});modal._referenceObserver=observer;modal.addEventListener('close',()=>observer.disconnect(),{once:true});

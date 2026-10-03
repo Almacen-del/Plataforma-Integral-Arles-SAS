@@ -1,5 +1,7 @@
 # Notas al pie e índices importados — 3 de octubre de 2026
 
+Este informe corresponde a la primera entrega del día. La continuación se documenta en AVANCE_WORD_REFERENCIAS_2026-10-03.md.
+
 Cambios locales, sin publicación en Vercel. No se modificaron los 50 originales ni documentos de producción.
 
 ## Implementado

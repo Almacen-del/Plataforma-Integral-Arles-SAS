@@ -1,7 +1,7 @@
 import {sectionSettings,pageLabel} from './native-word-sections.js';
 import {preparePrintNotes} from './native-word-notes.js';
 function splitLongText(d,node,height,limit){
- if(node.nodeType!==1||node.querySelector('img,table,ul,ol')||!node.textContent.trim())return [node];
+ if(node.nodeType!==1||node.querySelector('img,table,ul,ol,[data-print-note]')||!node.textContent.trim())return [node];
  const text=node.textContent,count=Math.ceil(height/limit),walker=d.createTreeWalker(node,4),leaves=[];while(walker.nextNode())leaves.push(walker.currentNode);
  const boundary=offset=>{for(const leaf of leaves){if(offset<=leaf.length)return [leaf,offset];offset-=leaf.length;}return [leaves.at(-1),leaves.at(-1).length];};
  const out=[];let start=0;for(let i=1;i<=count;i++){let end=i===count?text.length:Math.round(text.length*i/count);if(i<count){const space=text.lastIndexOf(' ',end);if(space>start)end=space+1;else if(/[\uDC00-\uDFFF]/.test(text[end]||''))end++;}if(end<=start)continue;const range=d.createRange();range.setStart(...boundary(start));range.setEnd(...boundary(end));const part=node.cloneNode(false);part.append(range.cloneContents());if(start)part.style.marginTop='0';if(end<text.length)part.style.marginBottom='0';out.push(part);start=end;}
@@ -32,6 +32,8 @@ export async function renderPrintFrame(frame,html,context={}){
  const config=sectionSettings(JSON.parse(d.body.dataset.sectionConfig||'{}')),regions={};for(const template of d.querySelectorAll('template[data-source-region]')){regions[template.dataset.sourceRegion]=template.innerHTML;template.remove();}
  d.querySelectorAll('script').forEach(n=>n.remove());
  const printNotes=preparePrintNotes(d);
+ // Footnotes are measured by Paged.js, not as inline paragraph text in the prepass.
+ const noteMeasure=d.createElement('style');noteMeasure.textContent='.arles-footnote{display:none!important}';d.head.append(noteMeasure);
  await Promise.all([...d.images].map(img=>img.decode().catch(()=>{})));await d.fonts.ready;
  const script=d.createElement('script');script.src='/public/vendor/paged-0.4.3.js';await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(Error('No se pudo cargar el motor de impresión.'));d.head.append(script);});
  const sourceStyle=w.getComputedStyle(d.body),columns=Number(sourceStyle.columnCount),gap=sourceStyle.columnGap,rule=sourceStyle.columnRule;
@@ -50,7 +52,7 @@ export async function renderPrintFrame(frame,html,context={}){
  for(const table of d.querySelectorAll('table')){const previous=table.previousElementSibling;if(previous&&!previous.style.breakAfter&&previous.textContent.trim().length<120&&(previous.matches('h1,h2,h3,h4,h5,h6')||previous.querySelector('strong,b')))previous.style.breakAfter='avoid';}
  if(columns>1)for(const p of [...d.body.querySelectorAll('p')]){if(p.closest('table,.source-print-header,.source-print-footer'))continue;const height=p.getBoundingClientRect().height;if(height>usable*.6){const parts=splitLongText(d,p,height,usable*.5);if(parts.length>1)p.replaceWith(...parts);}}
  if(unequal)composeUnequalColumns(d,w,width,usable,weights,parseFloat(gap),rule);
- const stableText=node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-word-page],[data-word-pages],[data-word-toc-page],.arles-footnote').forEach(n=>n.textContent='');return copy.textContent.replace(/\s+/g,'');};
+ const stableText=node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-word-page],[data-word-pages],[data-word-toc-page],.arles-footnote').forEach(n=>n.textContent='');for(const n of copy.querySelectorAll('[data-word-field]')){const f=JSON.parse(n.dataset.wordField);if(f.live&&/^PAGEREF\s/i.test(f.instruction))n.textContent='';}return copy.textContent.replace(/\s+/g,'');};
  const expected=[];for(const p of d.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li')){if(p.closest('.source-print-header,.source-print-footer')||p.querySelector('p,li'))continue;const id=String(expected.length);p.dataset.printText=id;expected.push(stableText(p));}
  const first=[...d.body.children].find(n=>!n.matches('.source-print-header,.source-print-footer'));if(first?.style.breakBefore==='page')first.style.breakBefore='auto';
  if(columns>1&&!unequal){const block=d.createElement('div');block.style.columnCount=String(columns);block.style.columnGap=gap;block.style.columnRule=rule;block.append(...d.body.childNodes);d.body.append(block);}
@@ -61,7 +63,7 @@ export async function renderPrintFrame(frame,html,context={}){
  const tableHeads=new Map();for(const [i,table] of [...d.querySelectorAll('table')].entries())if(table.tHead&&!table.closest('.source-print-header,.source-print-footer')){table.dataset.printTable=String(i);tableHeads.set(String(i),table.tHead.cloneNode(true));}
  class RepeatTableHeads extends w.PagedModule.Handler{layout(rendered){for(const table of rendered.querySelectorAll('table[data-print-table][data-split-from]'))if(!table.tHead&&tableHeads.has(table.dataset.printTable))table.prepend(tableHeads.get(table.dataset.printTable).cloneNode(true));}}
  w.PagedModule.registerHandlers(RepeatTableHeads);
- const preview=new w.PagedModule.Previewer();const result=await preview.preview();d.body.style.width='';if(!frame.isConnected)throw Error('Vista cerrada.');
+ noteMeasure.remove();const preview=new w.PagedModule.Previewer();const result=await preview.preview();d.body.style.width='';if(!frame.isConnected)throw Error('Vista cerrada.');
  // Field values must follow the composed page, not the cached value in the DOCX.
  const pages=[...d.querySelectorAll('.pagedjs_page')];pages.forEach((page,i)=>{const number=(config.start??context.numberStart??1)+i;page.dataset.printNumber=String(number);page.dataset.printLabel=pageLabel(number,config.format);if(Object.keys(regions).length){const type=config.titlePage&&i===0?'first':config.evenAndOdd&&number%2===0?'even':'default';for(const kind of ['header','footer']){const box=page.querySelector('.pagedjs_margin-'+(kind==='header'?'top':'bottom')+'-center .pagedjs_margin-content');if(box){const region=d.createElement('div');region.className='source-print-'+kind;region.innerHTML=regions[kind+'-'+type]||'';box.replaceChildren(region);}}}page.querySelectorAll('[data-word-page]').forEach(n=>n.textContent=pageLabel(number,config.format));page.querySelectorAll('[data-word-pages]').forEach(n=>n.textContent=String(pages.length));});
  await Promise.all([...d.images].map(img=>img.decode().catch(()=>{})));
@@ -80,6 +82,7 @@ export async function renderPrintFrame(frame,html,context={}){
 function updatePrintTOC(doc){
  const pages=[...doc.querySelectorAll('.pagedjs_page')],destinations=new Map();for(const page of pages)for(const node of page.querySelectorAll('[id],[data-id]')){const key=node.id||node.dataset.id;if(!destinations.has(key))destinations.set(key,page.dataset.printLabel||page.dataset.printNumber);}
  for(const node of doc.querySelectorAll('[data-word-toc-page]'))node.textContent=destinations.get(node.dataset.wordTocPage)||'—';
+ for(const node of doc.querySelectorAll('[data-word-field]')){const field=JSON.parse(node.dataset.wordField),ref=/^PAGEREF\s+"?([A-Za-z_][A-Za-z0-9_]{0,39})"?(?:\s+\\h)?$/i.exec(field.instruction||'');if(field.live&&ref)node.textContent=destinations.get(ref[1])||'—';}
 }
 function groupContinuousSections(documents){
  const groups=[];let last;
@@ -88,6 +91,8 @@ function groupContinuousSections(documents){
   if(last&&config.type==='continuous'&&config.start===null&&!config.titlePage&&signature===last.signature){for(const n of [...doc.body.childNodes])if(n.nodeType!==1||!n.matches('template[data-source-region],.source-print-header,.source-print-footer'))last.doc.body.append(n);}
   else{last={doc,signature};groups.push(last);}
  }
+ const finalNotes=[];for(const g of groups)for(const node of g.doc.querySelectorAll('[data-ref-note]')){if(node.closest('.source-print-header,.source-print-footer'))continue;const note=JSON.parse(node.dataset.refNote);if(note.kind==='end'&&note.position!=='sectEnd')finalNotes.push({number:node.textContent.trim(),text:String(note.text||'')});}
+ groups.forEach((g,i)=>g.doc.body.dataset.documentEndNotes=JSON.stringify(i===groups.length-1?finalNotes:[]));
  return groups.map(g=>'<!doctype html>'+g.doc.documentElement.outerHTML);
 }
 // Compose each section at its own geometry, then retain those dimensions in a single print document.
