@@ -1,4 +1,5 @@
 import {sectionSettings,pageLabel} from './native-word-sections.js';
+import {preparePrintNotes} from './native-word-notes.js';
 function splitLongText(d,node,height,limit){
  if(node.nodeType!==1||node.querySelector('img,table,ul,ol')||!node.textContent.trim())return [node];
  const text=node.textContent,count=Math.ceil(height/limit),walker=d.createTreeWalker(node,4),leaves=[];while(walker.nextNode())leaves.push(walker.currentNode);
@@ -30,6 +31,7 @@ export async function renderPrintFrame(frame,html,context={}){
  const sectionTemplates=[...d.querySelectorAll('template[data-print-section]')];if(sectionTemplates.length)return composeSections(frame,sectionTemplates.map(t=>t.content.textContent));
  const config=sectionSettings(JSON.parse(d.body.dataset.sectionConfig||'{}')),regions={};for(const template of d.querySelectorAll('template[data-source-region]')){regions[template.dataset.sourceRegion]=template.innerHTML;template.remove();}
  d.querySelectorAll('script').forEach(n=>n.remove());
+ const printNotes=preparePrintNotes(d);
  await Promise.all([...d.images].map(img=>img.decode().catch(()=>{})));await d.fonts.ready;
  const script=d.createElement('script');script.src='/public/vendor/paged-0.4.3.js';await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(Error('No se pudo cargar el motor de impresión.'));d.head.append(script);});
  const sourceStyle=w.getComputedStyle(d.body),columns=Number(sourceStyle.columnCount),gap=sourceStyle.columnGap,rule=sourceStyle.columnRule;
@@ -48,7 +50,7 @@ export async function renderPrintFrame(frame,html,context={}){
  for(const table of d.querySelectorAll('table')){const previous=table.previousElementSibling;if(previous&&!previous.style.breakAfter&&previous.textContent.trim().length<120&&(previous.matches('h1,h2,h3,h4,h5,h6')||previous.querySelector('strong,b')))previous.style.breakAfter='avoid';}
  if(columns>1)for(const p of [...d.body.querySelectorAll('p')]){if(p.closest('table,.source-print-header,.source-print-footer'))continue;const height=p.getBoundingClientRect().height;if(height>usable*.6){const parts=splitLongText(d,p,height,usable*.5);if(parts.length>1)p.replaceWith(...parts);}}
  if(unequal)composeUnequalColumns(d,w,width,usable,weights,parseFloat(gap),rule);
- const stableText=node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-word-page],[data-word-pages]').forEach(n=>n.textContent='');return copy.textContent.replace(/\s+/g,'');};
+ const stableText=node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-word-page],[data-word-pages],[data-word-toc-page],.arles-footnote').forEach(n=>n.textContent='');return copy.textContent.replace(/\s+/g,'');};
  const expected=[];for(const p of d.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li')){if(p.closest('.source-print-header,.source-print-footer')||p.querySelector('p,li'))continue;const id=String(expected.length);p.dataset.printText=id;expected.push(stableText(p));}
  const first=[...d.body.children].find(n=>!n.matches('.source-print-header,.source-print-footer'));if(first?.style.breakBefore==='page')first.style.breakBefore='auto';
  if(columns>1&&!unequal){const block=d.createElement('div');block.style.columnCount=String(columns);block.style.columnGap=gap;block.style.columnRule=rule;block.append(...d.body.childNodes);d.body.append(block);}
@@ -61,9 +63,11 @@ export async function renderPrintFrame(frame,html,context={}){
  w.PagedModule.registerHandlers(RepeatTableHeads);
  const preview=new w.PagedModule.Previewer();const result=await preview.preview();d.body.style.width='';if(!frame.isConnected)throw Error('Vista cerrada.');
  // Field values must follow the composed page, not the cached value in the DOCX.
- const pages=[...d.querySelectorAll('.pagedjs_page')];pages.forEach((page,i)=>{const number=(config.start??context.numberStart??1)+i;page.dataset.printNumber=String(number);if(Object.keys(regions).length){const type=config.titlePage&&i===0?'first':config.evenAndOdd&&number%2===0?'even':'default';for(const kind of ['header','footer']){const box=page.querySelector('.pagedjs_margin-'+(kind==='header'?'top':'bottom')+'-center .pagedjs_margin-content');if(box){const region=d.createElement('div');region.className='source-print-'+kind;region.innerHTML=regions[kind+'-'+type]||'';box.replaceChildren(region);}}}page.querySelectorAll('[data-word-page]').forEach(n=>n.textContent=pageLabel(number,config.format));page.querySelectorAll('[data-word-pages]').forEach(n=>n.textContent=String(pages.length));});
+ const pages=[...d.querySelectorAll('.pagedjs_page')];pages.forEach((page,i)=>{const number=(config.start??context.numberStart??1)+i;page.dataset.printNumber=String(number);page.dataset.printLabel=pageLabel(number,config.format);if(Object.keys(regions).length){const type=config.titlePage&&i===0?'first':config.evenAndOdd&&number%2===0?'even':'default';for(const kind of ['header','footer']){const box=page.querySelector('.pagedjs_margin-'+(kind==='header'?'top':'bottom')+'-center .pagedjs_margin-content');if(box){const region=d.createElement('div');region.className='source-print-'+kind;region.innerHTML=regions[kind+'-'+type]||'';box.replaceChildren(region);}}}page.querySelectorAll('[data-word-page]').forEach(n=>n.textContent=pageLabel(number,config.format));page.querySelectorAll('[data-word-pages]').forEach(n=>n.textContent=String(pages.length));});
  await Promise.all([...d.images].map(img=>img.decode().catch(()=>{})));
- const clipped=[];for(const page of pages){const area=page.querySelector('.pagedjs_area').getBoundingClientRect(),walker=d.createTreeWalker(page.querySelector('.pagedjs_page_content'),w.NodeFilter.SHOW_TEXT);while(walker.nextNode()){const n=walker.currentNode;if(!n.textContent.trim()||n.parentElement.closest('.source-print-header,.source-print-footer'))continue;const range=d.createRange();range.selectNodeContents(n);if([...range.getClientRects()].some(r=>r.width&&r.height&&(r.left<area.left-3||r.right>area.right+3||r.top<area.top-3||r.bottom>area.bottom+3)))clipped.push(n.textContent.slice(0,60));}}
+ for(const note of printNotes){const fragments=[...d.querySelectorAll('.pagedjs_footnote_area [data-print-note="'+note.key+'"]')];if(fragments.map(n=>n.textContent).join('')!==note.text)throw Error('La composición no conservó el texto completo de una nota al pie.');}
+ updatePrintTOC(d);
+ const clipped=[];for(const page of pages){const area=page.querySelector('.pagedjs_area').getBoundingClientRect(),walker=d.createTreeWalker(page.querySelector('.pagedjs_area'),w.NodeFilter.SHOW_TEXT);while(walker.nextNode()){const n=walker.currentNode;if(!n.textContent.trim()||n.parentElement.closest('.source-print-header,.source-print-footer'))continue;const range=d.createRange();range.selectNodeContents(n);if([...range.getClientRects()].some(r=>r.width&&r.height&&(r.left<area.left-3||r.right>area.right+3||r.top<area.top-3||r.bottom>area.bottom+3)))clipped.push(n.textContent.slice(0,60));}}
  if(clipped.length)throw Error('Hay '+clipped.length+' fragmentos fuera del área imprimible. Ajusta las tablas o márgenes; no se imprimirá contenido recortado.');
  const missing=[];expected.forEach((text,i)=>{const fragments=[...d.querySelectorAll('.pagedjs_page_content [data-print-text="'+i+'"]')].map(stableText);const actual=fragments.join('');if(text&&actual!==text&&!(fragments.length&&fragments.every(x=>x===text)))missing.push(i);});
  if(missing.length)throw Error('La composición no conservó '+missing.length+' bloques de texto. No se habilitó la impresión; el documento sigue intacto.');
@@ -73,6 +77,10 @@ export async function renderPrintFrame(frame,html,context={}){
 
 // Continuous sections may share the existing flow when their page rules agree.
 // Different geometry, running regions or numbering need a separate page context.
+function updatePrintTOC(doc){
+ const pages=[...doc.querySelectorAll('.pagedjs_page')],destinations=new Map();for(const page of pages)for(const node of page.querySelectorAll('[id],[data-id]')){const key=node.id||node.dataset.id;if(!destinations.has(key))destinations.set(key,page.dataset.printLabel||page.dataset.printNumber);}
+ for(const node of doc.querySelectorAll('[data-word-toc-page]'))node.textContent=destinations.get(node.dataset.wordTocPage)||'—';
+}
 function groupContinuousSections(documents){
  const groups=[];let last;
  for(const html of documents){const doc=new DOMParser().parseFromString(html,'text/html'),config=sectionSettings(JSON.parse(doc.body.dataset.sectionConfig||'{}'));
@@ -93,7 +101,7 @@ async function composeSections(frame,documents){
   for(const page of source.querySelectorAll('.pagedjs_page')){const clone=page.cloneNode(true),computed=stage.contentWindow.getComputedStyle(page);for(const key of computed)if(key.startsWith('--'))clone.style.setProperty(key,computed.getPropertyValue(key));const rect=page.getBoundingClientRect();clone.style.width=rect.width+'px';clone.style.height=rect.height+'px';clone.style.font=stage.contentWindow.getComputedStyle(source.body).font;clone.style.page='arlesSection'+index;clone.dataset.printSection=String(index);container.append(clone);count++;number=Number(page.dataset.printNumber)+1;}
   const first=source.querySelector('.pagedjs_page');if(first){const rule=d.createElement('style');rule.textContent='@page arlesSection'+index+'{size:'+first.offsetWidth+'px '+first.offsetHeight+'px;margin:0}';styles.push(rule);}
  }
- d.head.replaceChildren(...styles);d.body.replaceChildren(container);for(const el of container.querySelectorAll('[data-word-pages]'))el.textContent=String(count);return {pages:count,document:d};
+ d.head.replaceChildren(...styles);d.body.replaceChildren(container);for(const el of container.querySelectorAll('[data-word-pages]'))el.textContent=String(count);updatePrintTOC(d);return {pages:count,document:d};
  }finally{stages.forEach(s=>s.remove());}
 }
 export async function openPrintPreview(html){
