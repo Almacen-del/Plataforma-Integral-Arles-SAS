@@ -1,5 +1,15 @@
 # Espacio documental Arles SAS
 
+## Estado actual y repositorio
+
+El proyecto incorpora biblioteca documental, conexión a Supabase, personal y turnos, asistente de IA y lectores de PDF e imágenes. Word, Excel y PowerPoint se editan mediante la integración de ONLYOFFICE. La interfaz se publica en Vercel; el servidor de edición requiere su propio servicio disponible. El detalle de los motores actuales está en [docs/MOTORES_ACTUALES.md](docs/MOTORES_ACTUALES.md).
+
+La preparación del repositorio y su conexión al proyecto existente de Vercel se describen en [docs/GITHUB_VERCEL.md](docs/GITHUB_VERCEL.md). El repositorio contiene código y recursos de la aplicación; no incluye la base de datos, archivos privados de usuarios, credenciales, copias de trabajo del editor ni informes generados.
+
+Los apartados siguientes conservan la documentación histórica del prototipo inicial y no describen por sí solos el estado actual del sistema.
+
+## Documentación histórica del prototipo
+
 Prototipo local de interfaz, sin base de datos, autenticación ni servicios externos. Usa el logo original suministrado. No modifica Drive ni los cuatro proyectos operativos.
 
 ## Abrir

@@ -1,0 +1,79 @@
+name: arles-onlyoffice-local
+services:
+  pdf-tools:
+    build:
+      context: ../pdf-tools
+    image: arles-pdf-tools:1.0.0
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    cpus: 1
+    mem_limit: 512m
+    memswap_limit: 768m
+    pids_limit: 64
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:8089:8080"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,uid=65534,gid=65534
+    networks: [pdf-local]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+  onlyoffice:
+    image: onlyoffice/documentserver:9.4.0@sha256:8c114db7648a1654828d33e1f9f3b18e97c4caae6707d34bf04d793d260f7e67
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 90s
+    cpus: 2
+    # Prueba temporal en un equipo de 8 GB; medir consumo antes de ampliar uso.
+    mem_limit: 3g
+    memswap_limit: 6g
+    ports:
+      - "127.0.0.1:8088:80"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?Falta configurar el secreto local}
+      JWT_HEADER: AuthorizationJwt
+      JWT_IN_BODY: "true"
+      ALLOW_PRIVATE_IP_ADDRESS: "false"
+      ALLOW_META_IP_ADDRESS: "false"
+      ARLES_AUTOSAVE_INTERVAL: "1m"
+    entrypoint: ["/bin/bash", "/opt/arles/entrypoint.sh"]
+    volumes:
+      - ../onlyoffice-oracle/entrypoint.sh:/opt/arles/entrypoint.sh:ro
+      - logs:/var/log/onlyoffice
+      - data:/var/www/onlyoffice/Data
+      - cache:/var/lib/onlyoffice
+      - postgres:/var/lib/postgresql
+      - rabbitmq:/var/lib/rabbitmq
+      - redis:/var/lib/redis
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  logs:
+  data:
+  cache:
+  postgres:
+  rabbitmq:
+  redis:
+networks:
+  pdf-local:
+    driver: bridge

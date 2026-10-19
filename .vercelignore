@@ -10,3 +10,9 @@ dist
 !public/vendor/pdf/pdf-lib-LICENSE.md
 
 supabase
+/infra/
+/onlyoffice/
+server.mjs
+Iniciar editor temporal.cmd
+Detener editor temporal.cmd
+Reconectar editor con Vercel.cmd

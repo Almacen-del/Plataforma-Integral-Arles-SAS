@@ -2,5 +2,6 @@
   "framework": null,
   "buildCommand": "node build.mjs",
   "outputDirectory": "dist",
-  "installCommand": ""
+  "installCommand": "",
+  "headers": [{"source":"/office-ai/:path*","headers":[{"key":"Access-Control-Allow-Origin","value":"*"}]}]
 }

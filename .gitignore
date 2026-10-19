@@ -9,3 +9,12 @@ dist/
 .vercel
 
 supabase/.temp/
+
+# Copias de trabajo cifradas, procesos y herramientas del servidor temporal.
+infra/onlyoffice-local/private/
+infra/onlyoffice-local/runtime/
+
+# Informes generados, auditorias, pruebas locales y caches de Python.
+output/
+__pycache__/
+*.py[cod]

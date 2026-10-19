@@ -1,0 +1,9 @@
+Arles image reader dependency
+Package: @imagemagick/magick-wasm 0.0.44
+Upstream: https://github.com/dlemstra/magick-wasm
+Registry tarball: https://registry.npmjs.org/@imagemagick/magick-wasm/-/magick-wasm-0.0.44.tgz
+npm SHA1: 0f78f47d41c2a181db36901b3459986a4462208a
+Files: dist/index.js (renamed magick-0.0.44.js), dist/x86/magick.wasm.
+License: Apache-2.0 wrapper; bundled dependency notices and licenses in NOTICE.txt.
+Upstream files are unmodified. Arles viewer, routing, worker and controls are separate modules.
+Source and build instructions: https://github.com/dlemstra/magick-wasm/tree/0.0.44

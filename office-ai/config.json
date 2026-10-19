@@ -1,0 +1,22 @@
+{
+  "name":"Asistente Arles",
+  "guid":"asc.{A84E4B20-45E2-4EA5-971A-7609E99ED842}",
+  "version":"1.0.0",
+  "minVersion":"9.4.0",
+  "baseUrl":"",
+  "variations":[{
+    "description":"Asistente Arles",
+    "url":"index.html",
+    "icons":["icon.svg","icon.svg"],
+    "isViewer":true,
+    "EditorsSupport":["word","cell","slide"],
+    "isVisual":true,
+    "isModal":false,
+    "isInsideMode":true,
+    "type":"panelRight",
+    "initDataType":"none",
+    "initData":"",
+    "buttons":[],
+    "size":[360,600]
+  }]
+}

@@ -1,4 +1,4 @@
-import {initializeCloud,cloudStatus,signInCloud,signOutCloud,flushCloud,pendingCloudDownload,fieldSummary} from './platform-cloud.js';
+import {initializeCloud,cloudStatus,signInCloud,signOutCloud,flushCloud,pendingCloudDownload,fieldSummary,refreshCloudLibrary} from './platform-cloud.js';
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dialog=document.createElement('dialog');dialog.className='ts-dialog';dialog.id='integral-account';document.body.append(dialog);
 let initializationError='';
@@ -12,4 +12,5 @@ if(initializationError){document.querySelector('.workspace').hidden=true;const r
  document.addEventListener('integral-cloud-status',status);status();
  window.addEventListener('beforeunload',e=>{if(cloudStatus().pending){e.preventDefault();e.returnValue='';}});
  window.addEventListener('online',()=>flushCloud().catch(()=>{}));
+ window.addEventListener('storage',event=>{if(event.key==='integral-library-refresh-v1')refreshCloudLibrary().catch(()=>{});});
 }

@@ -71,3 +71,27 @@ export async function cloudObject(scope,action,id,value){
  const r=await client.rpc('integral_save_batch',{changes:[{key,payload,revision:revisions.get(key)||0}]});if(r.error){if(path)await client.storage.from('integral-files').remove([path]);fail(r.error);}revisions.set(key,r.data[0].revision);return value;
 }
 export async function fieldSummary(){if(!cloudActive())throw Error('Inicia sesión.');const result=[];for(const type of ['FLORACION','FRUTOS','PRODUCCION']){const r=await client.from('campo_records').select('id',{count:'exact',head:true}).eq('tipo',type);if(r.error)fail(r.error);result.push({type,count:r.count});}return result;}
+export async function officeDraft(fileId){
+ if(!cloudActive())return null;
+ const value=await cloudObject('document','get','editor-onlyoffice:'+fileId);
+ if(value&&(value.kind!=='arles-onlyoffice-draft-v1'||value.sourceFileId!==fileId||!(value.blob instanceof Blob)))throw Error('No se pudo validar el borrador compartido.');
+ return value||null;
+}
+export async function refreshCloudLibrary(){
+ if(!cloudActive())return false;const keys=['arles-documental-prototipo-v1','arles-audit-v1'];if(keys.some(key=>pending.has(key)))return false;
+ const rows=await Promise.all(keys.map(async key=>({key,row:await client.from('integral_state').select('payload,revision').eq('key','state:'+key).maybeSingle()})));for(const {key,row} of rows){if(row.error)fail(row.error);if(pending.has(key))return false;}
+ for(const {key,row} of rows){revisions.set('state:'+key,row.data?.revision||0);if(row.data?.payload==null)values.delete(key);else values.set(key,row.data.payload);}if(typeof document!=='undefined'){document.dispatchEvent(new Event('library-updated'));document.dispatchEvent(new Event('platform-data-changed'));}return true;
+}
+let scheduleRefresh;
+export async function refreshCloudSchedule(){
+ if(!cloudActive())return false;if(scheduleRefresh)return scheduleRefresh;
+ const keys=['arles-turnos-v1','arles-audit-v1'];if(keys.some(key=>pending.has(key)))return false;
+ scheduleRefresh=(async()=>{
+  const rows=await Promise.all(keys.map(async key=>({key,row:await client.from('integral_state').select('payload,revision').eq('key','state:'+key).maybeSingle()})));
+  for(const {key,row} of rows){if(row.error)fail(row.error);if(pending.has(key)||(row.data?.revision||0)<(revisions.get('state:'+key)||0))return false;}
+  const changed=rows.some(({key,row})=>values.get(key)!==(row.data?.payload??undefined));
+  for(const {key,row} of rows){revisions.set('state:'+key,row.data?.revision||0);if(row.data?.payload==null)values.delete(key);else values.set(key,row.data.payload);}
+  if(changed&&typeof document!=='undefined')document.dispatchEvent(new CustomEvent('platform-data-changed',{detail:{key:'arles-turnos-v1',remote:true}}));
+  return changed;
+ })();try{return await scheduleRefresh;}finally{scheduleRefresh=null;}
+}

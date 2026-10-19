@@ -21,7 +21,7 @@ export function extractDocumentHistory(book,format=cell=>String(cell?.raw??'')){
 }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export async function readOriginalHistory(blob,name){
- const {readXlsx,loadXlsxReader,checkXlsxArchive}=await import('./sheet-xlsx.js');
+ const {readXlsx,loadXlsxReader,checkXlsxArchive}=await import('./xlsx-reader.js');
  if(/\.docx$/i.test(name)){
   if(blob.size>25*1024*1024)throw Error('La lectura del historial Word admite archivos de hasta 25 MB.');
   await loadXlsxReader();const bytes=await blob.arrayBuffer();try{checkXlsxArchive(bytes);}catch(e){throw Error(e.message.replaceAll('XLSX','DOCX'));}

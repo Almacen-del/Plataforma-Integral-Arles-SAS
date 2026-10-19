@@ -1,4 +1,10 @@
 export const emptySchedule=()=>({people:[],types:[{id:'A',name:'Turno',color:'#5098d5'},{id:'D',name:'Descanso',color:'#f1cc38'},{id:'V',name:'Vacaciones',color:'#262626'},{id:'I',name:'Incapacidad',color:'#772577'},{id:'N',name:'No asistió',color:'#e52b35'},{id:'P',name:'Permiso por urgencia',color:'#809b91'},{id:'DP',name:'Descanso pendiente por compensar',color:'#f49732'}],entries:{},history:[]});
+export function setPersonStatus(state,id,status){
+ if(!['active','inactive'].includes(status))throw Error('El estado de la persona no es válido.');
+ const person=state.people.find(p=>p.id===id);if(!person)throw Error('La persona ya no existe en Personal.');
+ if(person.status===status)return false;
+ person.status=status;return true;
+}
 export function dateRange(from,to){
  const valid=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
  if(!valid(from)||!valid(to)||from>to)throw Error('Revisa las fechas de inicio y fin.');

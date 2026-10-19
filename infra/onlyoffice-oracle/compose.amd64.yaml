@@ -1,0 +1,8 @@
+# Complemento para un VPS Intel/AMD con al menos 8 GB de RAM.
+# Uso: docker compose -f compose.yaml -f compose.amd64.yaml up -d
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:9.4.0@sha256:8c114db7648a1654828d33e1f9f3b18e97c4caae6707d34bf04d793d260f7e67
+    platform: linux/amd64
+    # Reserva memoria para Ubuntu y Docker fuera del contenedor.
+    mem_limit: 6g

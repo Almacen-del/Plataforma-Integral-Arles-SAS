@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptySchedule,dateRange,applyRange} from '../turnos-model.js';
+import {emptySchedule,dateRange,applyRange,setPersonStatus} from '../turnos-model.js';
+test('Inactivar y reactivar conserva la misma ficha, turnos, contactos y enlaces históricos',()=>{
+ const s=emptySchedule();s.people=[{id:'one',name:'Persona',status:'active',area:'',phone:'3000000000',identity:'123'},{id:'two',status:'active'}];
+ s.entries={'one|2026-10-05':{type:'A',color:'#6fa8dc',source:{cell:'D4'},review:{status:'pending'}},'two|2026-10-05':{type:'D'}};
+ const before=structuredClone(s);assert.equal(setPersonStatus(s,'one','inactive'),true);assert.equal(s.people[0].status,'inactive');assert.deepEqual(s.entries,before.entries);assert.deepEqual(s.people[1],before.people[1]);
+ assert.equal(setPersonStatus(s,'one','inactive'),false);assert.equal(setPersonStatus(s,'one','active'),true);assert.deepEqual(s,before);
+ assert.throws(()=>setPersonStatus(s,'missing','inactive'));assert.throws(()=>setPersonStatus(s,'one','deleted'));assert.deepEqual(s,before);
+});
 test('Fechas válidas, bisiestos y rangos entre meses',()=>{assert.equal(dateRange('2024-02-28','2024-03-01').length,3);assert.throws(()=>dateRange('2025-02-29','2025-03-01'));assert.throws(()=>dateRange('2026-10-01','2026-09-01'));});
 test('Edición por rango protege existentes y permite reemplazo y borrado explícitos',()=>{const s=emptySchedule();s.people.push({id:'p1'});const args={ids:['p1'],from:'2026-09-01',to:'2026-09-03',type:'A'};assert.equal(applyRange(s,args),3);assert.throws(()=>applyRange(s,{...args,type:'D'}));assert.equal(s.entries['p1|2026-09-01'].type,'A');applyRange(s,{...args,type:'D',replace:true});assert.equal(s.entries['p1|2026-09-01'].type,'D');applyRange(s,{...args,type:'',replace:true});assert.deepEqual(s.entries,{});});
 test('Días de semana, personas y códigos se validan antes de escribir',()=>{const s=emptySchedule();s.people.push({id:'p1'});const args={ids:['p1'],from:'2026-09-01',to:'2026-09-07',type:'P',weekdays:[0]};assert.equal(applyRange(s,args),1);assert.equal(s.entries['p1|2026-09-06'].type,'P');assert.throws(()=>applyRange(s,{...args,ids:['otro']}));assert.throws(()=>applyRange(s,{...args,type:'XYZ'}));assert.equal(s.types.find(t=>t.id==='DP').color,'#f49732');});

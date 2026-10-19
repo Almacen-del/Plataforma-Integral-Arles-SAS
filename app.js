@@ -1,9 +1,11 @@
+import {installWordOffice} from './word-office.js';
+import {installPowerPointOffice} from './powerpoint-office.js';
+import {installExcelOffice} from './excel-office.js';
 import {platformStorage as localStorage} from './platform-cloud.js';
 import {installLibraryUpload} from './library-upload.js';
-import {openSheetWorkspace} from './sheet-workspace.js';
 import {auditSave,auditRecords} from './audit.js';
 import {renderSourceHistory,renderSourceVersion} from './document-source-history.js';
-import {openNativeDocument,createNativeDocument} from './native-document.js';
+import {openDocumentEditor} from './document-editor.js';
 import { ROOT, ISO_ROOT, LIBRARY_ROOTS, depth, ensureLibraryRoot, ancestors, createFolder, seed, clearDemo } from './model.js';
 import { setupEditor } from './editor.js';
 const $ = s => document.querySelector(s);
@@ -111,12 +113,6 @@ $('#favorites').onclick=()=>{mode='favorites';folder=ROOT;selected=null;selected
 $('#search').oninput=renderContents;$('#status').onchange=renderContents;
 $('#view-toggle').onclick=()=>{list=!list;$('#view-toggle').innerHTML=icon(list?'grid':'list');$('#view-toggle').setAttribute('aria-label',list?'Cambiar a vista de tarjetas':'Cambiar a vista de lista');renderContents();};
 $('#new-folder').onclick=()=>{ $('#folder-location').textContent='Dentro de: '+[ 'Biblioteca',...ancestors(state.folders,folder).map(f=>f.name)].join(' / ');$('#folder-name').value='';$('#folder-error').textContent='';$('#folder-dialog').showModal();$('#folder-name').focus();};
-const newText=document.createElement('button');newText.id='new-text-document';newText.className='button primary';newText.textContent='＋ Documento de texto';$('#new-folder').before(newText);newText.onclick=()=>createNativeDocument(folder);
-const sheetsButton=document.createElement('button');sheetsButton.id='open-sheet-workspace';sheetsButton.className='button secondary';sheetsButton.textContent='▦ Hojas de cálculo';newText.after(sheetsButton);sheetsButton.onclick=()=>openSheetWorkspace();
-const pdfButton=document.createElement('button');pdfButton.id='open-pdf-workspace';pdfButton.className='button secondary';pdfButton.textContent='PDF · Leer y editar';sheetsButton.after(pdfButton);pdfButton.onclick=()=>import('./pdf-workspace.js').then(m=>m.openPDFWorkspace()).catch(e=>toast('No se pudo abrir PDF: '+e.message));
-if(new URLSearchParams(location.search).get('editor')==='pdf')setTimeout(()=>pdfButton.click(),0);
-if(new URLSearchParams(location.search).get('editor')==='hojas')setTimeout(openSheetWorkspace,0);
-const textExample=document.createElement('button');textExample.id='new-text-example';textExample.className='button secondary';textExample.textContent='Ejemplo editable';newText.before(textExample);textExample.onclick=()=>createNativeDocument(folder,true);
 $('#folder-form').onsubmit=e=>{e.preventDefault();try{createFolder(state,folder,$('#folder-name').value);save();expanded.add(folder);$('#folder-dialog').close();render();toast('Carpeta creada.');}catch(err){$('#folder-error').textContent=err.message;}};
 $('#clear').onclick=()=>$('#confirm-dialog').showModal();$('#confirm-clear').onclick=()=>{clearDemo(state);save();$('#confirm-dialog').close();navigate(ROOT);toast('Pruebas eliminadas. Tus carpetas se conservaron.');};
 $('#help').onclick=()=>{ $('#preview-body').innerHTML='<div class="preview-paper"><div class="preview-brand">PROTOTIPO LOCAL</div><h1>Diseñar antes de conectar</h1><p>Puedes explorar cinco niveles, crear carpetas, buscar, ver versiones ilustrativas y guardar favoritos.</p><p>Los ejemplos y tus carpetas se conservan en este navegador. No se envían datos, no se suben archivos y no hay base de datos.</p><p>Esta vista de diseño muestra todos los procesos para revisar la estructura. No representa el acceso de un empleado. La autenticación y los permisos por cargo se implementarán después.</p></div>';$('#preview-dialog').showModal();};
@@ -133,25 +129,28 @@ document.addEventListener('click',e=>{
  if(btn.dataset.tab){tab=btn.dataset.tab;renderInspector();}
  if(btn.dataset.favorite){const id=btn.dataset.favorite;state.favorites=state.favorites.includes(id)?state.favorites.filter(x=>x!==id):[...state.favorites,id];save();renderContents();renderInspector();}
  if(btn.id==='open-preview'){
- const d=state.documents.find(x=>x.id===selected);if(!d)return;if(d.editorContent){openNativeDocument(d);return;}if(d.managed){document.dispatchEvent(new CustomEvent('open-controlled-document',{detail:d.id}));return;}
+ const d=state.documents.find(x=>x.id===selected);if(!d)return;if(d.editorContent||d.type==='PDF'||d.managed||d.versions?.some(v=>v.fileId)){openDocumentEditor(d);return;}
  $('#preview-body').innerHTML=`<div class="preview-paper"><div class="preview-brand">ARLES SAS / ESPACIO DOCUMENTAL</div><div class="preview-watermark">EJEMPLO · SIN VALIDEZ OPERATIVA</div><h1>${escape(d.name)}</h1><p>${escape(d.description||'Contenido ilustrativo para revisar la organización documental. No corresponde a un formato aprobado ni a una operación real.')}</p><hr><div class="preview-fields"><div>Código: ${escape(d.code)}</div><div>Versión: ${d.version}</div><div>Estado: ${escape(d.status)}</div><div>Áreas: ${escape(d.shared.join(', '))}</div></div><hr><p>Ubicación única: ${escape(ancestors(state.folders,d.folder).map(f=>f.name).join(' / '))}</p><p>Esta es una vista ilustrativa. No se ha adjuntado un archivo ${d.type} real.</p></div>`;$('#preview-dialog').showModal();}
 });
 document.addEventListener('keydown',e=>{if(!document.querySelector('#document-view')?.hidden&&e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();$('#search').focus();}});
 document.addEventListener('dblclick',e=>{
  if(e.target.closest('[data-more]'))return;
  const f=e.target.closest('.folder-card,.tree-name');if(f){navigate(f.dataset.folder);return;}
- const d=e.target.closest('.doc-row');if(d){selectItem('document',d.dataset.doc);openNativeDocument(state.documents.find(x=>x.id===d.dataset.doc));}
+ const d=e.target.closest('.doc-row');if(d){selectItem('document',d.dataset.doc);openDocumentEditor(state.documents.find(x=>x.id===d.dataset.doc));}
 });
 document.addEventListener('keydown',e=>{
  if(e.target.closest('[data-more]'))return;
  const el=e.target.closest('.folder-card,.doc-row,.tree-name');if(!el)return;
- if(e.key==='Enter'){e.preventDefault();if(el.dataset.folder)navigate(el.dataset.folder);else{selectItem('document',el.dataset.doc);openNativeDocument(state.documents.find(x=>x.id===el.dataset.doc));}}
+ if(e.key==='Enter'){e.preventDefault();if(el.dataset.folder)navigate(el.dataset.folder);else{selectItem('document',el.dataset.doc);openDocumentEditor(state.documents.find(x=>x.id===el.dataset.doc));}}
  if(e.key===' '){e.preventDefault();selectItem(el.dataset.folder?'folder':'document',el.dataset.folder||el.dataset.doc);}
 });
 setupEditor({state,save,render,select:selectItem,toast,escape});
 save('Inicialización o actualización de la estructura documental');
 render();
 installLibraryUpload({currentFolder:()=>folder});
+installWordOffice({currentFolder:()=>folder});
+installPowerPointOffice({currentFolder:()=>folder});
+installExcelOffice({currentFolder:()=>folder});
 
 
 

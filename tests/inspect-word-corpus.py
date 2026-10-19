@@ -8,6 +8,34 @@ from PIL import Image
 from io import BytesIO
 ROOT=Path(__file__).resolve().parents[1]/'output'/'word-corpus-50'
 def norm(s):return re.sub(r'\s+','',unicodedata.normalize('NFKC',s))
+
+def body_text_without_source_regions(texts, source):
+    """Exclude only exact source region paragraphs, with resolved page fields.
+
+    PDF extraction places running regions between fragments of a body paragraph
+    split across pages. Never drop arbitrary intervening text to make it match.
+    """
+    ns={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+    with zipfile.ZipFile(source) as z:
+        regions=[z.read(n) for n in z.namelist() if re.fullmatch(r'word/(?:header|footer)\d+\.xml',n)]
+    body=[];removed=[]
+    for page_number,text in enumerate(texts,1):
+        current=norm(text)
+        for xml in regions:
+            region=E.fromstring(xml)
+            for field in region.findall('.//w:fldSimple',ns):
+                instruction=field.get('{'+ns['w']+'}instr','').strip()
+                value={'PAGE':page_number,'NUMPAGES':len(texts)}.get(instruction)
+                if value is not None:
+                    for child in list(field):field.remove(child)
+                    E.SubElement(field,'{'+ns['w']+'}t').text=str(value)
+            for paragraph in region.findall('.//w:p',ns):
+                literal=norm(''.join(paragraph.itertext()))
+                if literal and literal in current:
+                    current=current.replace(literal,'',1)
+                    removed.append({'page':page_number,'text':literal})
+        body.append(current)
+    return ''.join(body),removed
 def main():
     p=argparse.ArgumentParser();p.add_argument('--run',default='baseline');p.add_argument('--render',action='store_true');args=p.parse_args()
     manifest=json.loads((ROOT/'manifest.json').read_text(encoding='utf-8'));folder=ROOT/'pruebas'/args.run;report=[]
@@ -57,7 +85,8 @@ def main():
                     row['images']['fitsColumn']=abs(actual-.75*column)<20
         pdf=folder/f'{m["id"]:02d}.pdf'
         if pdf.exists():
-            reader=PdfReader(pdf);texts=[page.extract_text() or '' for page in reader.pages];actual=norm(''.join(texts))
+            reader=PdfReader(pdf);texts=[page.extract_text() or '' for page in reader.pages]
+            actual,source_regions=body_text_without_source_regions(texts,source)
             expected=[]
             for text in m['paragraphs']:
                 edited=text.replace('lista','preparada') if text.startswith('Nota editorial del caso') else text
@@ -67,7 +96,7 @@ def main():
             aliases=[t for t in missing if '\u064a' in t and norm(t).replace('\u06cc','\u064a') in actual.replace('\u06cc','\u064a')]
             missing=[t for t in missing if t not in aliases]
             # Pending deletions have deliberately been excluded by the PDF final-view renderer.
-            row['pdf']={'pages':len(texts),'missingParagraphs':missing,'fontUnicodeAliases':aliases,'pageSizes':[[float(p.mediabox.width),float(p.mediabox.height)] for p in reader.pages]}
+            row['pdf']={'pages':len(texts),'missingParagraphs':missing,'fontUnicodeAliases':aliases,'excludedSourceRegions':source_regions,'pageSizes':[[float(p.mediabox.width),float(p.mediabox.height)] for p in reader.pages]}
             if args.render:
                 doc=pdfium.PdfDocument(pdf);target=folder/'paginas'/f'{m["id"]:02d}';target.mkdir(parents=True,exist_ok=True)
                 for j in range(len(doc)):

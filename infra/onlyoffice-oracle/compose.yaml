@@ -1,0 +1,57 @@
+name: arles-onlyoffice
+
+services:
+  onlyoffice:
+    # Imagen oficial verificada para OCI Ampere A1 (ARM64).
+    image: onlyoffice/documentserver:9.4.0@sha256:c6e8858f573e56272d618d70505d08cc121189b8510cacad248078ad0b3dbcc6
+    platform: linux/arm64
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 90s
+    cpus: 2
+    mem_limit: 8g
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?Falta configurar ONLYOFFICE_JWT_SECRET en .env}
+      JWT_HEADER: AuthorizationJwt
+      JWT_IN_BODY: "true"
+      ALLOW_PRIVATE_IP_ADDRESS: "false"
+      ALLOW_META_IP_ADDRESS: "false"
+      LETS_ENCRYPT_DOMAIN: ${ONLYOFFICE_DOMAIN:?Falta configurar ONLYOFFICE_DOMAIN en .env}
+      LETS_ENCRYPT_MAIL: ${ONLYOFFICE_CERT_EMAIL:?Falta configurar ONLYOFFICE_CERT_EMAIL en .env}
+      ARLES_AUTOSAVE_INTERVAL: "1m"
+    entrypoint: ["/bin/bash", "/opt/arles/entrypoint.sh"]
+    volumes:
+      - ./entrypoint.sh:/opt/arles/entrypoint.sh:ro
+      - logs:/var/log/onlyoffice
+      - data:/var/www/onlyoffice/Data
+      - cache:/var/lib/onlyoffice
+      - postgres:/var/lib/postgresql
+      - rabbitmq:/var/lib/rabbitmq
+      - redis:/var/lib/redis
+      - certificates:/etc/letsencrypt
+      - fonts:/usr/share/fonts/truetype/custom
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  logs:
+  data:
+  cache:
+  postgres:
+  rabbitmq:
+  redis:
+  certificates:
+  fonts:
